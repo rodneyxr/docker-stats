@@ -1,0 +1,127 @@
+package git
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"sort"
+	"strings"
+
+	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
+)
+
+// Repos holds information about a GitHub repository
+type Repo struct {
+	URL       string     `json:"url"`
+	Owner     string     `json:"owner"`
+	Repo      string     `json:"repo"`
+	Languages []Language `json:"languages"`
+	Images    []string   `json:"images"`
+}
+
+// Language holds information about a language used by a GitHub repository
+type Language struct {
+	Name       string  `json:"name"`
+	Percentage float32 `json:"percentage"`
+}
+
+// NewRepo creates the repo object given a URL
+func NewRepo(ctx context.Context, client *github.Client, url string) Repo {
+	tokens := strings.Split(url, "/")
+	owner := tokens[len(tokens)-2]
+	repo := tokens[len(tokens)-1]
+	repoInfo := Repo{
+		URL:   fmt.Sprintf("https://github.com/%s/%s", owner, repo),
+		Owner: owner,
+		Repo:  repo,
+	}
+
+	// List the languages for the repo
+	languages, _, err := client.Repositories.ListLanguages(ctx, repoInfo.Owner, repoInfo.Repo)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Calculate the total number bytes to be used later when computing the language percentage
+	totalBytes := 0
+	for _, bytes := range languages {
+		totalBytes += bytes
+	}
+
+	// Create the list of languages along with their percentages
+	var languageInfos []Language
+	for language, bytes := range languages {
+		languageInfos = append(languageInfos, Language{
+			Name:       language,
+			Percentage: float32(bytes) / float32(totalBytes) * 100,
+		})
+	}
+
+	// Sort the language info list from highest to lowest percentage
+	sort.Slice(languageInfos, func(i, j int) bool {
+		return languageInfos[i].Percentage > languageInfos[j].Percentage
+	})
+	repoInfo.Languages = languageInfos
+
+	// Get the list of docker files in the repo
+	var codeResults *github.CodeSearchResult
+	codeResults, _, err = client.Search.Code(ctx, fmt.Sprintf("dockerfile+in:path+repo:%s/%s", repoInfo.Owner, repoInfo.Repo), &github.SearchOptions{})
+	if _, ok := err.(*github.RateLimitError); ok {
+		log.Print("api rate limit reached")
+	}
+
+	// Search for FROM statements in each docker file
+	var images []string
+	for _, result := range codeResults.CodeResults {
+		fmt.Println("\t", *result.Path)
+		contents, err := client.Repositories.DownloadContents(ctx, repoInfo.Owner, repoInfo.Repo, *result.Path, &github.RepositoryContentGetOptions{})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		scanner := bufio.NewScanner(contents)
+		for scanner.Scan() {
+			text := scanner.Text()
+			if strings.HasPrefix(text, "FROM ") {
+				image := strings.Split(text, "FROM ")[1]
+				image = strings.Trim(image, " ")
+				images = append(images, image)
+				fmt.Println("\t\t", image)
+			}
+		}
+	}
+	return repoInfo
+}
+
+// CreateClient authenticates and creates a client to use
+func CreateClient(ctx context.Context, accessToken string) *github.Client {
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: accessToken},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+	client := github.NewClient(tc)
+	return client
+}
+
+// GetRepoList creates a list of repos from a json array file
+func GetRepoList(jsonFilePath string) []string {
+	// Open the input file
+	jsonFile, err := os.Open(jsonFilePath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer jsonFile.Close()
+
+	// Read the data from the file
+	data, _ := ioutil.ReadAll(jsonFile)
+	var repos []string
+	if err = json.Unmarshal(data, &repos); err != nil {
+		log.Fatal("failed to open")
+	}
+	return repos
+}
