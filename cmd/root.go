@@ -37,9 +37,14 @@ var rootCmd = &cobra.Command{
 	Short: "A data collection program for github repositories using Docker.",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		repoURLs := viper.GetStringSlice("repos")
-		fmt.Println(repoURLs)
+		// Load the existing results
+		repoList := git.LoadRepos(resultsFile)
+		repoMap := make(map[string]git.Repo)
+		for _, repo := range repoList {
+			repoMap[repo.URL] = repo
+		}
 
+		repoURLs := viper.GetStringSlice("repos")
 		ctx := context.Background()
 		token, err := ioutil.ReadFile(tokenFile)
 		if err != nil {
@@ -52,16 +57,28 @@ var rootCmd = &cobra.Command{
 
 		for i, repoURL := range repoURLs {
 			// Display progress to the user
-			fmt.Printf("(%d/%d) %s\n", i+1, len(repoURLs)-1, repoURL)
+			fmt.Printf("(%d/%d) %s\n", i+1, len(repoURLs), repoURL)
 
-			// Create and add the repo object to the result set
-			repo := git.NewRepo(ctx, client, repoURL)
+			// Check if the repo exists already
+			repo, ok := repoMap[repoURL]
+			if !ok {
+				// Create and add the repo object to the result set
+				repo = git.NewRepo(ctx, client, repoURL)
+				repoList = append(repoList, repo)
+				repoMap[repoURL] = repo
+			}
+			if repo.Languages == nil {
+				git.LoadLanguages(ctx, client, &repo)
+			}
+			if repo.Dockerfiles == nil {
+				git.LoadDockerfiles(ctx, client, &repo)
+			}
 			results = append(results, repo)
 		}
 
 		// Write the results to a file
 		repoInfoJson, _ := json.MarshalIndent(results, "", "    ")
-		if err := ioutil.WriteFile("results.json", repoInfoJson, 0644); err != nil {
+		if err := ioutil.WriteFile(resultsFile, repoInfoJson, 0644); err != nil {
 			log.Fatal(err)
 		}
 	},

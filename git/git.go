@@ -5,11 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
@@ -17,17 +20,32 @@ import (
 
 // Repos holds information about a GitHub repository
 type Repo struct {
-	URL       string     `json:"url"`
-	Owner     string     `json:"owner"`
-	Repo      string     `json:"repo"`
-	Languages []Language `json:"languages"`
-	Images    []string   `json:"images"`
+	URL         string     `json:"url"`
+	Owner       string     `json:"owner"`
+	Repo        string     `json:"repo"`
+	Languages   []Language `json:"languages"`
+	Dockerfiles []string   `json:"dockerfiles"`
+	Images      []string   `json:"images"`
 }
 
 // Language holds information about a language used by a GitHub repository
 type Language struct {
 	Name       string  `json:"name"`
 	Percentage float32 `json:"percentage"`
+}
+
+// LoadRepos will load a list of Repo objects from a json file.
+func LoadRepos(filePath string) []Repo {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var repos []Repo
+	err = json.Unmarshal(data, &repos)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return repos
 }
 
 // NewRepo creates the repo object given a URL
@@ -40,7 +58,69 @@ func NewRepo(ctx context.Context, client *github.Client, url string) Repo {
 		Owner: owner,
 		Repo:  repo,
 	}
+	LoadLanguages(ctx, client, &repoInfo)
+	LoadDockerfiles(ctx, client, &repoInfo)
+	return repoInfo
+}
 
+// LoadDockerfiles loads all files matching dockerfile in their path
+func LoadDockerfiles(ctx context.Context, client *github.Client, repoInfo *Repo) {
+	// Get the list of docker files in the repo
+	var codeResults *github.CodeSearchResult
+	var success bool
+	var err error
+	for !success {
+		codeResults, _, err = client.Search.Code(ctx, fmt.Sprintf("dockerfile+in:path+repo:%s/%s", repoInfo.Owner, repoInfo.Repo), &github.SearchOptions{})
+		if rateLimitError, ok := err.(*github.RateLimitError); ok {
+			waitTime := int(math.Abs(float64(rateLimitError.Rate.Reset.Second())-float64(time.Now().Second()))) + 1
+			log.Printf("error searching code: api rate limit reached - sleeping for %d second(s)...", waitTime)
+			time.Sleep(time.Duration(waitTime) * time.Second)
+		} else {
+			success = true
+		}
+	}
+
+	// Search for FROM statements in each docker file
+	var images []string
+	var dockerfiles []string
+	for _, result := range codeResults.CodeResults {
+		fmt.Println("\t", *result.Path)
+		success = false
+		var contents io.ReadCloser
+		for !success {
+			contents, err = client.Repositories.DownloadContents(ctx, repoInfo.Owner, repoInfo.Repo, *result.Path, &github.RepositoryContentGetOptions{})
+			if rateLimitError, ok := err.(*github.RateLimitError); ok {
+				waitTime := int(math.Abs(float64(rateLimitError.Rate.Reset.Second())-float64(time.Now().Second()))) + 1
+				log.Printf("error downloading contents: api rate limit reached - sleeping for %d second(s)...", waitTime)
+				time.Sleep(time.Duration(waitTime) * time.Second)
+			} else {
+				success = true
+			}
+		}
+
+		// Save the dockerfile
+		var data []byte
+		data, err = ioutil.ReadAll(contents)
+		dockerfiles = append(dockerfiles, string(data))
+
+		// Extract the images
+		scanner := bufio.NewScanner(contents)
+		for scanner.Scan() {
+			text := scanner.Text()
+			if strings.HasPrefix(text, "FROM ") {
+				image := strings.Split(text, "FROM ")[1]
+				image = strings.Trim(image, " ")
+				images = append(images, image)
+				fmt.Println("\t\t", image)
+			}
+		}
+	}
+	repoInfo.Dockerfiles = dockerfiles
+	repoInfo.Images = images
+}
+
+// LoadLanguages loads all the
+func LoadLanguages(ctx context.Context, client *github.Client, repoInfo *Repo) {
 	// List the languages for the repo
 	languages, _, err := client.Repositories.ListLanguages(ctx, repoInfo.Owner, repoInfo.Repo)
 	if err != nil {
@@ -67,35 +147,6 @@ func NewRepo(ctx context.Context, client *github.Client, url string) Repo {
 		return languageInfos[i].Percentage > languageInfos[j].Percentage
 	})
 	repoInfo.Languages = languageInfos
-
-	// Get the list of docker files in the repo
-	var codeResults *github.CodeSearchResult
-	codeResults, _, err = client.Search.Code(ctx, fmt.Sprintf("dockerfile+in:path+repo:%s/%s", repoInfo.Owner, repoInfo.Repo), &github.SearchOptions{})
-	if _, ok := err.(*github.RateLimitError); ok {
-		log.Print("api rate limit reached")
-	}
-
-	// Search for FROM statements in each docker file
-	var images []string
-	for _, result := range codeResults.CodeResults {
-		fmt.Println("\t", *result.Path)
-		contents, err := client.Repositories.DownloadContents(ctx, repoInfo.Owner, repoInfo.Repo, *result.Path, &github.RepositoryContentGetOptions{})
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		scanner := bufio.NewScanner(contents)
-		for scanner.Scan() {
-			text := scanner.Text()
-			if strings.HasPrefix(text, "FROM ") {
-				image := strings.Split(text, "FROM ")[1]
-				image = strings.Trim(image, " ")
-				images = append(images, image)
-				fmt.Println("\t\t", image)
-			}
-		}
-	}
-	return repoInfo
 }
 
 // CreateClient authenticates and creates a client to use
