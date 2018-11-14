@@ -3,6 +3,7 @@
 *.txt
 *.yaml
 *.yml
+*.json
 
 # Binaries for programs and plugins
 *.exe
