@@ -15,14 +15,9 @@
 package cmd
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
 
-	"github.com/rodneyxr/docker-stats/git"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -35,53 +30,7 @@ var tokenFile string
 var rootCmd = &cobra.Command{
 	Use:   "docker-stats",
 	Short: "A data collection program for github repositories using Docker.",
-
-	Run: func(cmd *cobra.Command, args []string) {
-		// Load the existing results
-		repoList := git.LoadRepos(resultsFile)
-		repoMap := make(map[string]git.Repo)
-		for _, repo := range repoList {
-			repoMap[repo.URL] = repo
-		}
-
-		repoURLs := viper.GetStringSlice("repos")
-		ctx := context.Background()
-		token, err := ioutil.ReadFile(tokenFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		client := git.CreateClient(ctx, string(token))
-
-		// Create the info list to hold all the results
-		var results []git.Repo
-
-		for i, repoURL := range repoURLs {
-			// Display progress to the user
-			fmt.Printf("(%d/%d) %s\n", i+1, len(repoURLs), repoURL)
-
-			// Check if the repo exists already
-			repo, ok := repoMap[repoURL]
-			if !ok {
-				// Create and add the repo object to the result set
-				repo = git.NewRepo(ctx, client, repoURL)
-				repoList = append(repoList, repo)
-				repoMap[repoURL] = repo
-			}
-			if repo.Languages == nil {
-				git.LoadLanguages(ctx, client, &repo)
-			}
-			if repo.Dockerfiles == nil {
-				git.LoadDockerfiles(ctx, client, &repo)
-			}
-			results = append(results, repo)
-		}
-
-		// Write the results to a file
-		repoInfoJson, _ := json.MarshalIndent(results, "", "    ")
-		if err := ioutil.WriteFile(resultsFile, repoInfoJson, 0644); err != nil {
-			log.Fatal(err)
-		}
-	},
+	//Run: func(cmd *cobra.Command, args []string) {},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -95,9 +44,9 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&reposFile, "repos", "repos.yaml", "config file (default repos.yaml)")
-	rootCmd.PersistentFlags().StringVar(&tokenFile, "token", "token.txt", "config file (default token.txt)")
-	rootCmd.PersistentFlags().StringVar(&resultsFile, "results", "results.json", "config file (default results.json)")
+	rootCmd.PersistentFlags().StringVar(&reposFile, "repos", "repos.yaml", "list of repos to update")
+	rootCmd.PersistentFlags().StringVar(&tokenFile, "token", "token.txt", "file containing GitHub access token")
+	rootCmd.PersistentFlags().StringVar(&resultsFile, "results", "results.json", "output file as json")
 }
 
 // initConfig reads in the list of repos defined in a yaml file.
