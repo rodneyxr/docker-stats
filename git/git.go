@@ -1,7 +1,22 @@
+// Copyright © 2018 Rodney Rodriguez
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package git
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,11 +51,12 @@ type Language struct {
 
 // LoadRepos will load a list of Repo objects from a json file.
 func LoadRepos(filePath string) []Repo {
+	var repos []Repo
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("repo file does not exist: %s", filePath)
+		return repos
 	}
-	var repos []Repo
 	err = json.Unmarshal(data, &repos)
 	if err != nil {
 		log.Fatal(err)
@@ -104,14 +120,14 @@ func LoadDockerfiles(ctx context.Context, client *github.Client, repoInfo *Repo)
 		dockerfiles = append(dockerfiles, string(data))
 
 		// Extract the images
-		scanner := bufio.NewScanner(contents)
+		scanner := bufio.NewScanner(bytes.NewReader(data))
 		for scanner.Scan() {
 			text := scanner.Text()
 			if strings.HasPrefix(text, "FROM ") {
 				image := strings.Split(text, "FROM ")[1]
 				image = strings.Trim(image, " ")
 				images = append(images, image)
-				fmt.Println("\t\t", image)
+				fmt.Println("\t\tFROM", image)
 			}
 		}
 	}
@@ -129,16 +145,16 @@ func LoadLanguages(ctx context.Context, client *github.Client, repoInfo *Repo) {
 
 	// Calculate the total number bytes to be used later when computing the language percentage
 	totalBytes := 0
-	for _, bytes := range languages {
-		totalBytes += bytes
+	for _, byteData := range languages {
+		totalBytes += byteData
 	}
 
 	// Create the list of languages along with their percentages
 	var languageInfos []Language
-	for language, bytes := range languages {
+	for language, byteData := range languages {
 		languageInfos = append(languageInfos, Language{
 			Name:       language,
-			Percentage: float32(bytes) / float32(totalBytes) * 100,
+			Percentage: float32(byteData) / float32(totalBytes) * 100,
 		})
 	}
 
