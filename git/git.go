@@ -16,6 +16,7 @@ package git
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -119,7 +120,7 @@ func LoadDockerfiles(ctx context.Context, client *github.Client, repoInfo *Repo)
 		dockerfiles = append(dockerfiles, string(data))
 
 		// Extract the images
-		scanner := bufio.NewScanner(contents)
+		scanner := bufio.NewScanner(bytes.NewReader(data))
 		for scanner.Scan() {
 			text := scanner.Text()
 			if strings.HasPrefix(text, "FROM ") {
@@ -144,16 +145,16 @@ func LoadLanguages(ctx context.Context, client *github.Client, repoInfo *Repo) {
 
 	// Calculate the total number bytes to be used later when computing the language percentage
 	totalBytes := 0
-	for _, bytes := range languages {
-		totalBytes += bytes
+	for _, byteData := range languages {
+		totalBytes += byteData
 	}
 
 	// Create the list of languages along with their percentages
 	var languageInfos []Language
-	for language, bytes := range languages {
+	for language, byteData := range languages {
 		languageInfos = append(languageInfos, Language{
 			Name:       language,
-			Percentage: float32(bytes) / float32(totalBytes) * 100,
+			Percentage: float32(byteData) / float32(totalBytes) * 100,
 		})
 	}
 
