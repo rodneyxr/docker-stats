@@ -16,8 +16,11 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/asottile/dockerfile"
 	"github.com/rodneyxr/docker-stats/git"
 	"github.com/spf13/cobra"
+	"log"
+	"strings"
 )
 
 // listCmd represents the list command
@@ -43,6 +46,23 @@ var listCmd = &cobra.Command{
 
 		for i, repo := range goRepos {
 			fmt.Printf("%d: %s\n", i, repo.URL)
+
+			// For each first Dockerfile in each repo
+			if len(repo.Dockerfiles) > 0 {
+				// Parse the Dockerfile
+				reader := strings.NewReader(repo.Dockerfiles[0])
+				commandList, err := dockerfile.ParseReader(reader)
+				if err != nil {
+					log.Print(err)
+					continue
+				}
+
+				// Print all commands in the Dockerfile
+				for _, cmd := range commandList {
+					fmt.Println(cmd.Cmd)
+				}
+
+			}
 		}
 	},
 }
