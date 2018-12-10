@@ -59,7 +59,9 @@ var listCmd = &cobra.Command{
 
 				// Print all commands in the Dockerfile
 				for _, cmd := range commandList {
-					fmt.Println(cmd.Cmd)
+					if cmd.Cmd == "run" {
+						fmt.Println(cmd.Cmd, cmd.Value)
+					}
 				}
 
 			}
