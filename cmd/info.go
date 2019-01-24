@@ -16,18 +16,18 @@ package cmd
 
 import (
 	"fmt"
-	"log"
-	"strings"
-
-	"github.com/asottile/dockerfile"
+	"github.com/rodneyxr/docker-stats/docker"
 	"github.com/rodneyxr/docker-stats/git"
 	"github.com/spf13/cobra"
+	"log"
 )
 
-// listCmd represents the list command
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "A brief description of your command",
+var repoURL string
+
+// infoCmd represents the list command
+var infoCmd = &cobra.Command{
+	Use:   "info",
+	Short: "Show information about a docker GitHub repository",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the existing results
 		repoList := git.LoadRepos(resultsFile)
@@ -36,12 +36,15 @@ var listCmd = &cobra.Command{
 			repoMap[repo.URL] = repo
 		}
 
+		// Generate a list of Golang repos
 		var goRepos []git.Repo
-
-		for _, repo := range repoList {
-			if len(repo.Languages) > 0 && repo.Languages[0].Name == "Go" {
-				goRepos = append(goRepos, repo)
-				/*fmt.Printf("%d: %s\n", numberOfGoRepos, repo.URL)*/
+		if repoURL != "" {
+			goRepos = append(goRepos, repoMap[repoURL])
+		} else {
+			for _, repo := range repoList {
+				if len(repo.Languages) > 0 && repo.Languages[0].Name == "Go" {
+					goRepos = append(goRepos, repo)
+				}
 			}
 		}
 
@@ -51,35 +54,19 @@ var listCmd = &cobra.Command{
 			// For each first Dockerfile in each repo
 			if len(repo.Dockerfiles) > 0 {
 				// Parse the Dockerfile
-				reader := strings.NewReader(repo.Dockerfiles[0])
-				commandList, err := dockerfile.ParseReader(reader)
+				runCommandList, err := docker.ExtractRunCommandsFromDockerfile(repo.Dockerfiles[0])
 				if err != nil {
 					log.Print(err)
-					continue
 				}
-
-				// Print all commands in the Dockerfile
-				for _, cmd := range commandList {
-					if cmd.Cmd == "run" {
-						fmt.Println(cmd.Cmd, cmd.Value)
-					}
+				for _, cmd := range runCommandList {
+					docker.AnalyzeRunCommand(cmd)
 				}
-
 			}
 		}
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(listCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// listCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// listCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.AddCommand(infoCmd)
+	infoCmd.Flags().StringVar(&repoURL, "repo", "", "Git repo URL")
 }
