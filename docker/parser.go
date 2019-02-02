@@ -51,6 +51,7 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 		switch x := node.(type) {
 		case *syntax.ParamExp:
 			x.Param.Value = strings.ToUpper(x.Param.Value)
+		case *syntax.arg
 		}
 		return true
 	})
