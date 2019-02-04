@@ -31,13 +31,16 @@ func ExtractRunCommandsFromDockerfile(data string) ([]dockerfile.Command, error)
 		return nil, err
 	}
 
+	var commands []dockerfile.Command
+
 	// Print all commands in the Dockerfile
 	for _, cmd := range commandList {
 		if cmd.Cmd == "run" {
-			fmt.Println(cmd.Cmd, cmd.Value)
+			commands = append(commands, cmd)
+			//fmt.Println(cmd.Cmd, cmd.Value)
 		}
 	}
-	return commandList, nil
+	return commands, nil
 }
 
 func AnalyzeRunCommand(cmd dockerfile.Command) {
@@ -47,13 +50,50 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 	if err != nil {
 		return
 	}
+	fmt.Println("\tRun command:", commandString)
+	p := syntax.NewPrinter()
 	syntax.Walk(f, func(node syntax.Node) bool {
 		switch x := node.(type) {
-		case *syntax.ParamExp:
-			x.Param.Value = strings.ToUpper(x.Param.Value)
-		case *syntax.arg
+		case *syntax.CallExpr:
+			p.Print(os.Stdout, x.Args[0])
+			fmt.Println()
+			break
+		case *syntax.IfClause:
+			break
+		case *syntax.WhileClause:
+			break
+		case *syntax.ForClause:
+			break
+		case *syntax.CaseClause:
+			break
+		case *syntax.Block:
+			break
+		case *syntax.Subshell:
+			break
+		case *syntax.BinaryCmd:
+			//syntax.NewPrinter().Print(os.Stdout, x.Op)
+			fmt.Println(x.Op.String())
+			break
+		case *syntax.FuncDecl:
+			break
+		case *syntax.ArithmCmd:
+			break
+		case *syntax.TestClause:
+			break
+		case *syntax.DeclClause:
+			break
+		case *syntax.LetClause:
+			break
+		case *syntax.TimeClause:
+			break
+		case *syntax.CoprocClause:
+			break
+		case *syntax.Assign:
+			p.Print(os.Stdout, x.Name)
+			break
+		default:
 		}
 		return true
 	})
-	syntax.NewPrinter().Print(os.Stdout, f)
+	//syntax.NewPrinter().Print(os.Stdout, f)
 }
