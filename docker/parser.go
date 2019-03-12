@@ -16,7 +16,6 @@ package docker
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/asottile/dockerfile"
@@ -51,12 +50,34 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 		return
 	}
 	fmt.Println("\tRun command:", commandString)
-	p := syntax.NewPrinter()
+	//p := syntax.NewPrinter()
 	syntax.Walk(f, func(node syntax.Node) bool {
 		switch x := node.(type) {
 		case *syntax.CallExpr:
-			p.Print(os.Stdout, x.Args[0])
-			fmt.Println()
+			// only handle most common commands
+			// go through all projects and rank most common commands
+			cmd := x.Args[0].Lit()
+			if cmd == "touch" {
+				// Create a touch statement for each argument
+				for _, s := range x.Args[1:] {
+					fmt.Println("touch", s.Lit())
+				}
+			} else if cmd == "mkdir" {
+				for _, s := range x.Args[1:] {
+					fmt.Println("mkdir", s.Lit())
+				}
+			} else if cmd == "rm" || cmd == "rmdir" {
+				for _, s := range x.Args[1:] {
+					fmt.Println("rm", s.Lit())
+				}
+			} else if cmd == "cp" {
+				arg1, arg2 := x.Args[1].Lit(), x.Args[2].Lit()
+				fmt.Println("cp", arg1, arg2)
+			} else if cmd == "mv" {
+				arg1, arg2 := x.Args[1].Lit(), x.Args[2].Lit()
+				fmt.Println("cp", arg1, arg2)
+				fmt.Println("rm", arg1)
+			}
 			break
 		case *syntax.IfClause:
 			break
@@ -71,8 +92,6 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 		case *syntax.Subshell:
 			break
 		case *syntax.BinaryCmd:
-			//syntax.NewPrinter().Print(os.Stdout, x.Op)
-			fmt.Println(x.Op.String())
 			break
 		case *syntax.FuncDecl:
 			break
@@ -89,7 +108,8 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 		case *syntax.CoprocClause:
 			break
 		case *syntax.Assign:
-			p.Print(os.Stdout, x.Name)
+			fmt.Print("assign: ")
+			fmt.Println("$x? =", x.Name.Value)
 			break
 		default:
 		}
