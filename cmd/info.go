@@ -48,6 +48,7 @@ var infoCmd = &cobra.Command{
 			}
 		}
 
+		// TODO: Only handle one repo provided by argument
 		for i, repo := range goRepos {
 			fmt.Printf("%d: %s\n", i, repo.URL)
 
