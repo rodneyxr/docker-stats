@@ -24,6 +24,8 @@ import (
 	"strings"
 )
 
+var uniqueFlag bool
+
 // rankCmd represents the rank command
 var rankCmd = &cobra.Command{
 	Use:   "rank",
@@ -45,6 +47,7 @@ var rankCmd = &cobra.Command{
 		}
 
 		for i, repo := range goRepos {
+			localKeywordMap := make(map[string]int)
 			fmt.Printf("%d: %s\n", i, repo.URL)
 
 			// For each Dockerfile in each repo
@@ -59,9 +62,19 @@ var rankCmd = &cobra.Command{
 
 				for _, cmd := range runCommandList {
 					commandName := strings.Split(cmd.Value[0], " ")[0]
-					keywordMap[commandName] += 1
+					if uniqueFlag {
+						// Only count one occurrence of a command per project if unique flag is provided
+						localKeywordMap[commandName] = 1
+					} else {
+						localKeywordMap[commandName] += 1
+					}
 					fmt.Printf("%s(%d)\n", commandName, keywordMap[commandName])
 				}
+			}
+
+			// Add local keywords map to the total keywords map
+			for k, v := range localKeywordMap {
+				keywordMap[k] += v
 			}
 		}
 
@@ -77,7 +90,6 @@ var rankCmd = &cobra.Command{
 		sort.Slice(ss, func(i, j int) bool {
 			return ss[i].Value > ss[j].Value
 		})
-
 
 		// Display the results
 		fmt.Println()
@@ -100,5 +112,5 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// rankCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rankCmd.Flags().BoolVar(&uniqueFlag, "unique", false, "Only allow one command per project to be ranked")
 }
