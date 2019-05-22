@@ -42,6 +42,14 @@ func ExtractRunCommandsFromDockerfile(data string) ([]dockerfile.Command, error)
 	return commands, nil
 }
 
+func extractFlags(word *syntax.Word) []string {
+	var flags []string
+
+	flags = append(flags, "")
+
+	return flags
+}
+
 func AnalyzeRunCommand(cmd dockerfile.Command) {
 	commandString := strings.Join(cmd.Value, " ")
 	in := strings.NewReader(commandString)
@@ -67,6 +75,7 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 					fmt.Println("mkdir", s.Lit())
 				}
 			} else if cmd == "rm" || cmd == "rmdir" {
+				// TODO: check for flags
 				for _, s := range x.Args[1:] {
 					fmt.Println("rm", s.Lit())
 				}
