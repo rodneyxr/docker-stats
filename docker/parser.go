@@ -65,27 +65,59 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 			// only handle most common commands
 			// go through all projects and rank most common commands
 			cmd := x.Args[0].Lit()
-			if cmd == "touch" {
+			switch cmd {
+			case "touch":
 				// Create a touch statement for each argument
 				for _, s := range x.Args[1:] {
 					fmt.Println("touch", s.Lit())
 				}
-			} else if cmd == "mkdir" {
+				break
+			case "mkdir":
 				for _, s := range x.Args[1:] {
 					fmt.Println("mkdir", s.Lit())
 				}
-			} else if cmd == "rm" || cmd == "rmdir" {
+				break
+			case "rm":
+			case "rmdir":
 				// TODO: check for flags
 				for _, s := range x.Args[1:] {
 					fmt.Println("rm", s.Lit())
 				}
-			} else if cmd == "cp" {
+				break
+			case "cp":
 				arg1, arg2 := x.Args[1].Lit(), x.Args[2].Lit()
 				fmt.Println("cp", arg1, arg2)
-			} else if cmd == "mv" {
+				break
+			case "mv":
 				arg1, arg2 := x.Args[1].Lit(), x.Args[2].Lit()
 				fmt.Println("cp", arg1, arg2)
 				fmt.Println("rm", arg1)
+				break
+			case "git":
+				// TODO: handle git clone
+				// TODO: handle git rm
+				break
+			case "cd":
+				// TODO: handle changing directories
+				break
+			case "wget":
+				// TODO: handle wget
+				break
+			case "curl":
+				// TODO: handle curl
+				break
+			case "tar":
+				// TODO: handle tar
+				break
+			case "set":
+				// TODO: handle variables
+				break
+			case "ln":
+				// TODO: handle symlinks
+				break
+			case "export":
+				// TODO: handle variables
+				break
 			}
 			break
 		case *syntax.IfClause:
