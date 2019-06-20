@@ -16,6 +16,7 @@ package docker
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/asottile/dockerfile"
@@ -94,17 +95,37 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 				fmt.Println("rm", arg1)
 				break
 			case "git":
-				// TODO: handle git clone
 				// TODO: handle git rm
+				arg1 := x.Args[1].Lit()
+				if arg1 == "clone" {
+					dirname := filepath.Base(x.Args[2].Lit())
+					fmt.Println("mkdir", dirname)
+				}
 				break
 			case "cd":
-				// TODO: handle changing directories
+				arg1 := x.Args[1].Lit()
+				fmt.Println("cd", arg1)
 				break
 			case "wget":
 				// TODO: handle wget
+				arg1 := x.Args[1].Lit()
+				if !strings.HasPrefix("-", arg1) {
+					fmt.Println("touch", filepath.Base(arg1))
+				}
 				break
 			case "curl":
 				// TODO: handle curl
+				index := -1
+				for i, word := range x.Args {
+					arg := word.Lit()
+					if strings.HasPrefix("-O", arg) {
+						index = i + 1
+					}
+				}
+				if index < len(x.Args) {
+					arg := x.Args[index].Lit()
+					fmt.Println("touch", arg)
+				}
 				break
 			case "tar":
 				// TODO: handle tar

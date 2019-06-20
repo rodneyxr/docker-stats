@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN go get  golang.org/x/lint/golint \
             github.com/mattn/goveralls \
             golang.org/x/tools/cover
+RUN git clone https://github.com/rodneyxr/repo
+RUN wget https://github.com/rodneyxr/testfile.txt
+RUN curl -XGET https://google.com -O google_output
 ENV USER root
 WORKDIR /go/src/github.com/docker/machine
 COPY . ./
