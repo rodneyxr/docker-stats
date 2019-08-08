@@ -1,7 +1,9 @@
 package docker
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"testing"
 )
 
@@ -30,7 +32,12 @@ func TestParser(t *testing.T) {
 	if err != nil {
 		log.Print(err)
 	}
+	ffa := strings.Builder{}
 	for _, cmd := range runCommandList {
-		AnalyzeRunCommand(cmd)
+		commands := AnalyzeRunCommand(cmd)
+		for _, ffaCommand := range commands {
+			ffa.WriteString(ffaCommand + "\n")
+		}
 	}
+	fmt.Println(ffa.String())
 }

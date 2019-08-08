@@ -51,12 +51,13 @@ func extractFlags(word *syntax.Word) []string {
 	return flags
 }
 
-func AnalyzeRunCommand(cmd dockerfile.Command) {
+func AnalyzeRunCommand(cmd dockerfile.Command) []string {
+	var ffaList []string
 	commandString := strings.Join(cmd.Value, " ")
 	in := strings.NewReader(commandString)
 	f, err := syntax.NewParser().Parse(in, "")
 	if err != nil {
-		return
+		return ffaList
 	}
 	fmt.Println("\tRun command:", commandString)
 	//p := syntax.NewPrinter()
@@ -70,48 +71,49 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 			case "touch":
 				// Create a touch statement for each argument
 				for _, s := range x.Args[1:] {
-					fmt.Println("touch", s.Lit())
+					ffaList = append(ffaList, fmt.Sprintf("touch %s", s.Lit()))
 				}
 				break
 			case "mkdir":
 				for _, s := range x.Args[1:] {
-					fmt.Println("mkdir", s.Lit())
+					ffaList = append(ffaList, fmt.Sprintf("mkdir %s", s.Lit()))
 				}
 				break
 			case "rm":
 			case "rmdir":
 				// TODO: check for flags
 				for _, s := range x.Args[1:] {
-					fmt.Println("rm", s.Lit())
+					ffaList = append(ffaList, fmt.Sprintf("rm %s", s.Lit()))
 				}
 				break
 			case "cp":
 				arg1, arg2 := x.Args[1].Lit(), x.Args[2].Lit()
-				fmt.Println("cp", arg1, arg2)
+				ffaList = append(ffaList, fmt.Sprintf("cp %s %s", arg1, arg2))
 				break
 			case "mv":
 				arg1, arg2 := x.Args[1].Lit(), x.Args[2].Lit()
-				fmt.Println("cp", arg1, arg2)
-				fmt.Println("rm", arg1)
+				ffaList = append(ffaList, fmt.Sprintf("cp %s %s", arg1, arg2))
+				ffaList = append(ffaList, fmt.Sprintf("rm %s", arg1))
 				break
 			case "git":
 				// TODO: handle git rm
 				arg1 := x.Args[1].Lit()
 				if arg1 == "clone" {
 					dirname := filepath.Base(x.Args[2].Lit())
-					fmt.Println("mkdir", dirname)
+					ffaList = append(ffaList, fmt.Sprintf("mkdir %s", dirname))
 				}
 				break
 			case "cd":
 				arg1 := x.Args[1].Lit()
-				fmt.Println("cd", arg1)
+				ffaList = append(ffaList, fmt.Sprintf("cd %s", arg1))
 				break
 			case "wget":
 				// TODO: handle wget
 				arg1 := x.Args[1].Lit()
 				if !strings.HasPrefix("-", arg1) {
-					fmt.Println("touch", filepath.Base(arg1))
+					ffaList = append(ffaList, fmt.Sprintf("touch %s", filepath.Base(arg1)))
 				}
+				// TODO: handle -O parameter
 				break
 			case "curl":
 				// TODO: handle curl
@@ -124,7 +126,7 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 				}
 				if index < len(x.Args) {
 					arg := x.Args[index].Lit()
-					fmt.Println("touch", arg)
+					ffaList = append(ffaList, fmt.Sprintf("touch %s", arg))
 				}
 				break
 			case "tar":
@@ -170,12 +172,11 @@ func AnalyzeRunCommand(cmd dockerfile.Command) {
 		case *syntax.CoprocClause:
 			break
 		case *syntax.Assign:
-			fmt.Print("assign: ")
-			fmt.Println("$x? =", x.Name.Value)
+			ffaList = append(ffaList, fmt.Sprintf("$x? = %s", x.Name.Value))
 			break
 		default:
 		}
 		return true
 	})
-	//syntax.NewPrinter().Print(os.Stdout, f)
+	return ffaList
 }
