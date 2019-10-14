@@ -100,6 +100,9 @@ func LoadDockerfiles(ctx context.Context, client *github.Client, repoInfo *Repo)
 	var images []string
 	var dockerfiles []string
 	for _, result := range codeResults.CodeResults {
+		if strings.HasSuffix(*result.Path, ".go") {
+			continue
+		}
 		fmt.Println("\t", *result.Path)
 		success = false
 		var contents io.ReadCloser

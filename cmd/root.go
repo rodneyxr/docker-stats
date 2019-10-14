@@ -46,7 +46,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&reposFile, "repos", "repos.yaml", "list of repos to update")
 	rootCmd.PersistentFlags().StringVar(&tokenFile, "token", "token.txt", "file containing GitHub access token")
-	rootCmd.PersistentFlags().StringVar(&resultsFile, "results", "results.json", "output file as json")
+	rootCmd.PersistentFlags().StringVar(&resultsFile, "resultsfile", "results.json", "output file as json")
 }
 
 // initConfig reads in the list of repos defined in a yaml file.
