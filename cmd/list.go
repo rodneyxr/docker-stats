@@ -1,4 +1,4 @@
-// Copyright © 2018 Rodney Rodriguez
+// Copyright © 2019 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,18 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/asottile/dockerfile"
 	"github.com/rodneyxr/docker-stats/git"
 	"github.com/spf13/cobra"
 )
+
+var saveFlag bool
 
 // listCmd represents the list command
 var listCmd = &cobra.Command{
@@ -41,8 +50,43 @@ var listCmd = &cobra.Command{
 			}
 		}
 
+		// Create the directory to save the docker files to
+		if saveFlag {
+			if err := os.MkdirAll("dockerfiles", os.ModePerm); err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		// Iterate through all repos
 		for i, repo := range goRepos {
 			fmt.Printf("%d: %s\n", i, repo.URL)
+
+			// For each first Dockerfile in each repo
+			if len(repo.Dockerfiles) > 0 {
+				// Save the dockerfile to a file
+				if saveFlag {
+					dockerFilename := strings.Join([]string{repo.Owner, repo.Repo, "Dockerfile"}, "_")
+					if err := ioutil.WriteFile(filepath.Join("dockerfiles", dockerFilename), []byte(repo.Dockerfiles[0]), os.ModePerm); err != nil {
+						log.Fatal(err)
+					}
+				}
+
+				// Parse the Dockerfile
+				reader := strings.NewReader(repo.Dockerfiles[0])
+				commandList, err := dockerfile.ParseReader(reader)
+				if err != nil {
+					log.Print(err)
+					continue
+				}
+
+				// Print all commands in the Dockerfile
+				for _, cmd := range commandList {
+					if cmd.Cmd == "run" {
+						fmt.Println(cmd.Cmd, cmd.Value)
+					}
+				}
+
+			}
 		}
 	},
 }
@@ -50,13 +94,6 @@ var listCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(listCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// listCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// listCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Provide this flag if the Dockerfiles should be saved to a file
+	listCmd.Flags().BoolVarP(&saveFlag, "save", "s", false, "Save the Dockerfiles to a file")
 }

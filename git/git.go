@@ -1,4 +1,4 @@
-// Copyright © 2018 Rodney Rodriguez
+// Copyright © 2019 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -100,6 +100,9 @@ func LoadDockerfiles(ctx context.Context, client *github.Client, repoInfo *Repo)
 	var images []string
 	var dockerfiles []string
 	for _, result := range codeResults.CodeResults {
+		if strings.HasSuffix(*result.Path, ".go") {
+			continue
+		}
 		fmt.Println("\t", *result.Path)
 		success = false
 		var contents io.ReadCloser
