@@ -18,10 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rodneyxr/docker-stats/ffa"
 	"io/ioutil"
 	"log"
 
-	"github.com/rodneyxr/docker-stats/git"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -32,8 +32,8 @@ var updateCmd = &cobra.Command{
 	Short: "Updates/downloads the results using the GitHub REST API",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the existing results
-		repoList := git.LoadRepos(resultsFile)
-		repoMap := make(map[string]git.Repo)
+		repoList := ffa.LoadRepos(resultsFile)
+		repoMap := make(map[string]ffa.Repo)
 		for _, repo := range repoList {
 			repoMap[repo.URL] = repo
 		}
@@ -44,10 +44,10 @@ var updateCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		client := git.CreateClient(ctx, string(token))
+		client := ffa.CreateClient(ctx, string(token))
 
 		// Create the info list to hold all the results
-		var results []git.Repo
+		var results []ffa.Repo
 
 		for i, repoURL := range repoURLs {
 			// Display progress to the user
@@ -57,15 +57,15 @@ var updateCmd = &cobra.Command{
 			repo, ok := repoMap[repoURL]
 			if !ok {
 				// Create and add the repo object to the result set
-				repo = git.NewRepo(ctx, client, repoURL)
+				repo = ffa.NewRepo(ctx, client, repoURL)
 				repoList = append(repoList, repo)
 				repoMap[repoURL] = repo
 			}
 			if repo.Languages == nil {
-				git.LoadLanguages(ctx, client, &repo)
+				ffa.LoadLanguages(ctx, client, &repo)
 			}
 			if repo.Dockerfiles == nil {
-				git.LoadDockerfiles(ctx, client, &repo)
+				ffa.LoadDockerfiles(ctx, client, &repo)
 			}
 			results = append(results, repo)
 		}

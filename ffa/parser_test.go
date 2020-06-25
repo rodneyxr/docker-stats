@@ -1,4 +1,4 @@
-package docker
+package ffa
 
 import (
 	"fmt"
@@ -34,7 +34,10 @@ func TestParser(t *testing.T) {
 	}
 	ffa := strings.Builder{}
 	for _, cmd := range runCommandList {
-		commands := AnalyzeRunCommand(cmd)
+		commands, err := AnalyzeShellCommand(strings.Join(cmd.Value, " "))
+		if err != nil {
+			t.Fatal(err)
+		}
 		for _, ffaCommand := range commands {
 			ffa.WriteString(ffaCommand + "\n")
 		}

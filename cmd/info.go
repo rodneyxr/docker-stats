@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/rodneyxr/docker-stats/docker"
-	"github.com/rodneyxr/docker-stats/git"
+	"github.com/rodneyxr/docker-stats/ffa"
 	"github.com/spf13/cobra"
 	"log"
+	"strings"
 )
 
 var repoURL string
@@ -30,14 +30,14 @@ var infoCmd = &cobra.Command{
 	Short: "Show information about a docker GitHub repository",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the existing results
-		repoList := git.LoadRepos(resultsFile)
-		repoMap := make(map[string]git.Repo)
+		repoList := ffa.LoadRepos(resultsFile)
+		repoMap := make(map[string]ffa.Repo)
 		for _, repo := range repoList {
 			repoMap[repo.URL] = repo
 		}
 
 		// Generate a list of Golang repos
-		var goRepos []git.Repo
+		var goRepos []ffa.Repo
 		if repoURL != "" {
 			goRepos = append(goRepos, repoMap[repoURL])
 		} else {
@@ -55,12 +55,12 @@ var infoCmd = &cobra.Command{
 			// For each first Dockerfile in each repo
 			if len(repo.Dockerfiles) > 0 {
 				// Parse the Dockerfile
-				runCommandList, err := docker.ExtractRunCommandsFromDockerfile(repo.Dockerfiles[0])
+				runCommandList, err := ffa.ExtractRunCommandsFromDockerfile(repo.Dockerfiles[0])
 				if err != nil {
 					log.Print(err)
 				}
 				for _, cmd := range runCommandList {
-					docker.AnalyzeRunCommand(cmd)
+					ffa.AnalyzeShellCommand(strings.Join(cmd.Value, " "))
 				}
 			}
 		}

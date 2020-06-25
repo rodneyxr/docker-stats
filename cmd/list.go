@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/rodneyxr/docker-stats/ffa"
 	"io/ioutil"
 	"log"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/asottile/dockerfile"
-	"github.com/rodneyxr/docker-stats/git"
 	"github.com/spf13/cobra"
 )
 
@@ -35,13 +35,13 @@ var listCmd = &cobra.Command{
 	Short: "A brief description of your command",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the existing results
-		repoList := git.LoadRepos(resultsFile)
-		repoMap := make(map[string]git.Repo)
+		repoList := ffa.LoadRepos(resultsFile)
+		repoMap := make(map[string]ffa.Repo)
 		for _, repo := range repoList {
 			repoMap[repo.URL] = repo
 		}
 
-		var goRepos []git.Repo
+		var goRepos []ffa.Repo
 
 		for _, repo := range repoList {
 			if len(repo.Languages) > 0 && repo.Languages[0].Name == "Go" {

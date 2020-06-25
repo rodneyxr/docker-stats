@@ -16,8 +16,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/rodneyxr/docker-stats/docker"
-	"github.com/rodneyxr/docker-stats/git"
+	"github.com/rodneyxr/docker-stats/ffa"
 	"github.com/spf13/cobra"
 	"log"
 	"sort"
@@ -32,14 +31,14 @@ var rankCmd = &cobra.Command{
 	Short: "Ranks the number of occurrences for each run binary executed by the docker RUN command",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the existing results
-		repoList := git.LoadRepos(resultsFile)
-		repoMap := make(map[string]git.Repo)
+		repoList := ffa.LoadRepos(resultsFile)
+		repoMap := make(map[string]ffa.Repo)
 		keywordMap := make(map[string]int)
 		for _, repo := range repoList {
 			repoMap[repo.URL] = repo
 		}
 
-		var goRepos []git.Repo
+		var goRepos []ffa.Repo
 		for _, repo := range repoList {
 			if len(repo.Languages) > 0 && repo.Languages[0].Name == "Go" {
 				goRepos = append(goRepos, repo)
@@ -54,7 +53,7 @@ var rankCmd = &cobra.Command{
 			// For each first Dockerfile in each repo
 			for _, dockerfile := range repo.Dockerfiles {
 				//if len(repo.Dockerfiles) > 0 {
-				runCommandList, err := docker.ExtractRunCommandsFromDockerfile(dockerfile)
+				runCommandList, err := ffa.ExtractRunCommandsFromDockerfile(dockerfile)
 				if err != nil {
 					log.Print(err)
 					continue

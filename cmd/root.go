@@ -28,7 +28,7 @@ var tokenFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "docker-stats",
+	Use:   "ffatoolkit",
 	Short: "A data collection program for github repositories using Docker.",
 	//Run: func(cmd *cobra.Command, args []string) {},
 }

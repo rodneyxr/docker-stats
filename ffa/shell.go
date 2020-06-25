@@ -1,71 +1,34 @@
-// Copyright © 2019 Rodney Rodriguez
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-package docker
+package ffa
 
 import (
 	"fmt"
-	"path/filepath"
-	"strings"
-
-	"github.com/asottile/dockerfile"
 	"github.com/mvdan/sh/syntax"
+	"path/filepath"
+	"strconv"
+	"strings"
 )
 
-// ExtractAllCommandsFromDockerfile
-func ExtractAllCommandsFromDockerfile(data string) ([]dockerfile.Command, error) {
-	reader := strings.NewReader(data)
-	commandList, err := dockerfile.ParseReader(reader)
-	if err != nil {
-		return nil, err
-	}
-	return commandList, nil
-}
-
-// ExtractRunCommandsFromDockerfile
-func ExtractRunCommandsFromDockerfile(data string) ([]dockerfile.Command, error) {
-	commandList, err := ExtractAllCommandsFromDockerfile(data)
-	if err != nil {
-		return nil, err
-	}
-
-	var commands []dockerfile.Command
-
-	// Print all commands in the Dockerfile
-	for _, cmd := range commandList {
-		if cmd.Cmd == "run" {
-			commands = append(commands, cmd)
-			//fmt.Println(cmd.Cmd, cmd.Value)
-		}
-	}
-	return commands, nil
-}
-
-func AnalyzeRunCommand(cmd dockerfile.Command) []string {
+func AnalyzeShellCommand(cmd string) ([]string, error) {
 	var ffaList []string
-	commandString := strings.Join(cmd.Value, " ")
-	in := strings.NewReader(commandString)
+	in := strings.NewReader(cmd)
 	f, err := syntax.NewParser().Parse(in, "")
 	if err != nil {
-		return ffaList
+		//log.Println("failed to parse: '" + cmd[:int(math.Min(float64(len(cmd)), 32))] + "'")
+		return nil, err
 	}
-	//fmt.Println("\tRun command:", commandString)
+
+	ffaVarCounter := 0
+	var varbank map[string]string
+
 	syntax.Walk(f, func(node syntax.Node) bool {
 		switch x := node.(type) {
 		case *syntax.CallExpr:
-			// only handle most common commands
-			// go through all projects and rank most common commands
+			// Skip if empty command
+			if len(x.Args) == 0 {
+				return true
+			}
+
+			// We only handle most common commands
 			cmd := x.Args[0].Lit()
 			switch cmd {
 			case "touch":
@@ -77,6 +40,7 @@ func AnalyzeRunCommand(cmd dockerfile.Command) []string {
 			case "mkdir":
 				args := removeFlags(x.Args)
 				for _, s := range args[1:] {
+					// TODO: handle arguments with variables
 					ffaList = append(ffaList, fmt.Sprintf("mkdir '%s';", s))
 				}
 				break
@@ -174,13 +138,29 @@ func AnalyzeRunCommand(cmd dockerfile.Command) []string {
 		case *syntax.CoprocClause:
 			break
 		case *syntax.Assign:
-			ffaList = append(ffaList, fmt.Sprintf("$x? = '%s';", x.Name.Value))
+			// Check if varname is in bank
+			ffaVar, ok := varbank[x.Name.Value]
+			if !ok {
+				ffaVar = "$x" + strconv.Itoa(ffaVarCounter)
+				// increment x? variable name
+				ffaVarCounter++
+			}
+
+			// If RHS is unknown use 'INPUT'
+			rhs := x.Value
+			if _, ok = rhs.Parts[0].(*syntax.Lit); !ok {
+				// If RHS is not of type Lit, then we use INPUT
+				ffaList = append(ffaList, fmt.Sprintf("%s = INPUT;", ffaVar))
+			} else {
+				ffaList = append(ffaList, fmt.Sprintf("%s = '%s';", ffaVar, rhs.Lit()))
+			}
+
 			break
 		default:
 		}
 		return true
 	})
-	return ffaList
+	return ffaList, nil
 }
 
 func removeFlags(arguments []*syntax.Word) []string {
