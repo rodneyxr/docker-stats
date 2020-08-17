@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/rodneyxr/docker-stats/cmd"
+import "github.com/rodneyxr/ffatoolkit/cmd"
 
 func main() {
 	cmd.Execute()

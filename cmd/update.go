@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rodneyxr/docker-stats/ffa"
+	"github.com/rodneyxr/ffatoolkit/ffa"
 	"io/ioutil"
 	"log"
 

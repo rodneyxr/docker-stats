@@ -1,5 +1,7 @@
 /.idea
 /dockerfiles
+/[v]env
+/results
 
 *.txt
 *.yaml
@@ -18,3 +20,7 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+input/*
+!input/download.py
+!input/search.py

@@ -18,7 +18,7 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 	}
 
 	ffaVarCounter := 0
-	var varbank map[string]string
+	var varbank = make(map[string]string)
 
 	syntax.Walk(f, func(node syntax.Node) bool {
 		switch x := node.(type) {
@@ -71,15 +71,22 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 				}
 				break
 			case "cd":
-				arg1 := x.Args[1].Lit()
-				ffaList = append(ffaList, fmt.Sprintf("cd '%s';", arg1))
+				if len(x.Args) == 1 {
+					// Typically 'cd' with no args with go to user's home directory...
+					ffaList = append(ffaList, "cd '/';")
+				} else {
+					arg1 := x.Args[1].Lit()
+					ffaList = append(ffaList, fmt.Sprintf("cd '%s';", arg1))
+				}
 				break
 			case "wget":
-				// TODO: handle wget
-				arg1 := x.Args[1].Lit()
-				if !strings.HasPrefix("-", arg1) {
-					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(arg1)))
-				}
+				command := literize(x.Args)
+				command, args := extractFlag(command, "-O", 1)
+				ffaList = append(ffaList, fmt.Sprintf("touch '%s'"), filepath.Base(args[0]))
+				//arg1 := x.Args[1].Lit()
+				//if !strings.HasPrefix("-", arg1) {
+				//	ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(arg1)))
+				//}
 				// TODO: handle -O parameter
 				break
 			case "curl":
@@ -139,20 +146,25 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 			break
 		case *syntax.Assign:
 			// Check if varname is in bank
-			ffaVar, ok := varbank[x.Name.Value]
-			if !ok {
-				ffaVar = "$x" + strconv.Itoa(ffaVarCounter)
-				// increment x? variable name
-				ffaVarCounter++
-			}
+			if x.Name != nil {
+				ffaVar, ok := varbank[x.Name.Value]
+				if !ok {
+					ffaVar = "$x" + strconv.Itoa(ffaVarCounter)
+					// increment x? variable name
+					ffaVarCounter++
+				}
 
-			// If RHS is unknown use 'INPUT'
-			rhs := x.Value
-			if _, ok = rhs.Parts[0].(*syntax.Lit); !ok {
-				// If RHS is not of type Lit, then we use INPUT
-				ffaList = append(ffaList, fmt.Sprintf("%s = INPUT;", ffaVar))
-			} else {
-				ffaList = append(ffaList, fmt.Sprintf("%s = '%s';", ffaVar, rhs.Lit()))
+				// If RHS is unknown use 'INPUT'
+				rhs := x.Value
+				if rhs == nil || len(rhs.Parts) == 0 {
+					return false
+				}
+				if _, ok = rhs.Parts[0].(*syntax.Lit); !ok {
+					// If RHS is not of type Lit, then we use INPUT
+					ffaList = append(ffaList, fmt.Sprintf("%s = INPUT;", ffaVar))
+				} else {
+					ffaList = append(ffaList, fmt.Sprintf("%s = '%s';", ffaVar, rhs.Lit()))
+				}
 			}
 
 			break
@@ -161,6 +173,36 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 		return true
 	})
 	return ffaList, nil
+}
+
+func literize(arguments []*syntax.Word) []string {
+	var args []string
+	for _, arg := range arguments {
+		args = append(args, arg.Lit())
+	}
+	return args
+}
+
+// extractFlag strips the flag and nFlags number of flags after the flag from
+// the command string provided.
+// Returns the stripped command string and extracted flags (flag inclusive)
+func extractFlag(command []string, flag string, nFlags int) ([]string, []string) {
+	marker := -1
+	for i, s := range command {
+		if flag == s {
+			marker = i
+		}
+	}
+	var newCommand []string
+	var extractedFlags []string
+	for i, s := range command {
+		if i >= marker && i <= marker+nFlags {
+			extractedFlags = append(extractedFlags, s)
+		} else {
+			newCommand = append(newCommand, s)
+		}
+	}
+	return newCommand, extractedFlags
 }
 
 func removeFlags(arguments []*syntax.Word) []string {
