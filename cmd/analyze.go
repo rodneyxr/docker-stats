@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/rodneyxr/ffatoolkit/ffa"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -61,9 +60,7 @@ var analyzeCmd = &cobra.Command{
 		// Create the results directory
 		_ = os.Mkdir(resultsDir, os.ModeDir)
 
-		for i, filename := range files {
-			fmt.Printf("%d: %s\n", i, filename)
-
+		for _, filename := range files {
 			// Read the file data
 			data, err := ioutil.ReadFile(filename)
 			if err != nil {
@@ -105,8 +102,9 @@ var analyzeCmd = &cobra.Command{
 			case "shell":
 				results, err := ffa.AnalyzeShellCommand(string(data))
 				if err != nil {
-					log.Println(err)
-					break
+					// skip this file to avoid a partially translated file
+					log.Printf("failed to parse %s: %s", filename, err)
+					continue
 				}
 				ffaScript = append(ffaScript, results...)
 				break

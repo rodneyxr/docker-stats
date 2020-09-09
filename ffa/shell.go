@@ -13,7 +13,6 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 	in := strings.NewReader(cmd)
 	f, err := syntax.NewParser().Parse(in, "")
 	if err != nil {
-		//log.Println("failed to parse: '" + cmd[:int(math.Min(float64(len(cmd)), 32))] + "'")
 		return nil, err
 	}
 
@@ -22,6 +21,29 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 
 	syntax.Walk(f, func(node syntax.Node) bool {
 		switch x := node.(type) {
+		case *syntax.Assign:
+			// Check if varname is in bank
+			if x.Name != nil {
+				ffaVar, ok := varbank[x.Name.Value]
+				if !ok {
+					ffaVar = "$x" + strconv.Itoa(ffaVarCounter)
+					// increment x? variable name
+					ffaVarCounter++
+				}
+
+				// If RHS is unknown use 'INPUT'
+				rhs := x.Value
+				if rhs == nil || len(rhs.Parts) == 0 {
+					return false
+				}
+				if _, ok = rhs.Parts[0].(*syntax.Lit); !ok {
+					// If RHS is not of type Lit, then we use INPUT
+					ffaList = append(ffaList, fmt.Sprintf("%s = INPUT;", ffaVar))
+				} else {
+					ffaList = append(ffaList, fmt.Sprintf("%s = '%s';", ffaVar, rhs.Lit()))
+				}
+			}
+			break
 		case *syntax.CallExpr:
 			// Skip if empty command
 			if len(x.Args) == 0 {
@@ -82,7 +104,7 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 			case "wget":
 				command := literize(x.Args)
 				command, args := extractFlag(command, "-O", 1)
-				ffaList = append(ffaList, fmt.Sprintf("touch '%s'"), filepath.Base(args[0]))
+				ffaList = append(ffaList, fmt.Sprintf("touch '%s'", filepath.Base(args[0])))
 				//arg1 := x.Args[1].Lit()
 				//if !strings.HasPrefix("-", arg1) {
 				//	ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(arg1)))
@@ -117,57 +139,19 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 			}
 			break
 		case *syntax.IfClause:
-			break
 		case *syntax.WhileClause:
-			break
 		case *syntax.ForClause:
-			break
 		case *syntax.CaseClause:
-			break
 		case *syntax.Block:
-			break
 		case *syntax.Subshell:
-			break
 		case *syntax.BinaryCmd:
-			break
 		case *syntax.FuncDecl:
-			break
 		case *syntax.ArithmCmd:
-			break
 		case *syntax.TestClause:
-			break
 		case *syntax.DeclClause:
-			break
 		case *syntax.LetClause:
-			break
 		case *syntax.TimeClause:
-			break
 		case *syntax.CoprocClause:
-			break
-		case *syntax.Assign:
-			// Check if varname is in bank
-			if x.Name != nil {
-				ffaVar, ok := varbank[x.Name.Value]
-				if !ok {
-					ffaVar = "$x" + strconv.Itoa(ffaVarCounter)
-					// increment x? variable name
-					ffaVarCounter++
-				}
-
-				// If RHS is unknown use 'INPUT'
-				rhs := x.Value
-				if rhs == nil || len(rhs.Parts) == 0 {
-					return false
-				}
-				if _, ok = rhs.Parts[0].(*syntax.Lit); !ok {
-					// If RHS is not of type Lit, then we use INPUT
-					ffaList = append(ffaList, fmt.Sprintf("%s = INPUT;", ffaVar))
-				} else {
-					ffaList = append(ffaList, fmt.Sprintf("%s = '%s';", ffaVar, rhs.Lit()))
-				}
-			}
-
-			break
 		default:
 		}
 		return true
