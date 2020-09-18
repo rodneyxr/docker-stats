@@ -69,8 +69,9 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 			case "rm":
 			case "rmdir":
 				// TODO: check for flags
+				// TODO: check for -r and use rmr
 				for _, s := range x.Args[1:] {
-					ffaList = append(ffaList, fmt.Sprintf("rm '%s';", s.Lit()))
+					ffaList = append(ffaList, fmt.Sprintf("rmr '%s';", s.Lit()))
 				}
 				break
 			case "cp":
@@ -82,7 +83,7 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 				args := removeFlags(x.Args)
 				arg1, arg2 := args[1], args[2]
 				ffaList = append(ffaList, fmt.Sprintf("cp '%s' '%s';", arg1, arg2))
-				ffaList = append(ffaList, fmt.Sprintf("rm '%s';", arg1))
+				ffaList = append(ffaList, fmt.Sprintf("rmr '%s';", arg1))
 				break
 			case "git":
 				// TODO: handle git rm
@@ -104,7 +105,7 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 			case "wget":
 				command := literize(x.Args)
 				command, args := extractFlag(command, "-O", 1)
-				ffaList = append(ffaList, fmt.Sprintf("touch '%s'", filepath.Base(args[0])))
+				ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(args[0])))
 				//arg1 := x.Args[1].Lit()
 				//if !strings.HasPrefix("-", arg1) {
 				//	ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(arg1)))

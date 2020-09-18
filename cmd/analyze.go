@@ -38,7 +38,8 @@ var analyzeCmd = &cobra.Command{
 		// Stat the file
 		info, err := os.Stat(filepathFlag)
 		if err != nil {
-			panic(err)
+			cmd.PrintErrln("could not read " + filepathFlag)
+			os.Exit(1)
 		}
 
 		if info.IsDir() {
@@ -128,4 +129,6 @@ func init() {
 	analyzeCmd.Flags().StringVar(&fileTypeFlag, "type", "", "type of file to analyze (shell or docker)")
 	analyzeCmd.Flags().StringVar(&filepathFlag, "filepath", "", "path to file or directory to analyze")
 	analyzeCmd.Flags().StringVar(&resultsDir, "results", "results", "directory to save results")
+	_ = analyzeCmd.MarkFlagRequired("filepath")
+	_ = analyzeCmd.MarkFlagRequired("type")
 }
