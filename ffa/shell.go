@@ -105,24 +105,20 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 			case "wget":
 				command := literize(x.Args)
 				command, args := extractFlag(command, "-O", 1)
-				ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(args[0])))
-				//arg1 := x.Args[1].Lit()
-				//if !strings.HasPrefix("-", arg1) {
-				//	ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(arg1)))
-				//}
-				// TODO: handle -O parameter
+				if args != nil {
+					// if -O is present, touch full path
+					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", args[1]))
+				} else {
+					command = removeFlagsLit(command)
+					// if -O is not present, we don't always know what the filename will be
+					//ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(command[1])))
+				}
 				break
 			case "curl":
-				index := -1
-				for i, word := range x.Args {
-					arg := word.Lit()
-					if strings.HasPrefix("-O", arg) {
-						index = i + 1
-					}
-				}
-				if index < len(x.Args) && index >= 0 {
-					arg := x.Args[index].Lit()
-					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", arg))
+				command := literize(x.Args)
+				command, args := extractFlag(command, "-O", 1)
+				if args != nil {
+					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", args[1]))
 				}
 				break
 			case "tar":
@@ -140,6 +136,8 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 			}
 			break
 		case *syntax.IfClause:
+			// TODO: handle if clause
+			// Axeldnahcram_zsh_install.sh
 		case *syntax.WhileClause:
 		case *syntax.ForClause:
 		case *syntax.CaseClause:
@@ -160,6 +158,7 @@ func AnalyzeShellCommand(cmd string) ([]string, error) {
 	return ffaList, nil
 }
 
+// literize converts a []*syntax.Word to a []string
 func literize(arguments []*syntax.Word) []string {
 	var args []string
 	for _, arg := range arguments {
@@ -172,12 +171,20 @@ func literize(arguments []*syntax.Word) []string {
 // the command string provided.
 // Returns the stripped command string and extracted flags (flag inclusive)
 func extractFlag(command []string, flag string, nFlags int) ([]string, []string) {
+	// Search for the flag in the command
 	marker := -1
 	for i, s := range command {
 		if flag == s {
 			marker = i
 		}
 	}
+
+	// Return if the flag was not found
+	if marker == -1 {
+		return command, nil
+	}
+
+	// Remove the specified flag and arguments from the command
 	var newCommand []string
 	var extractedFlags []string
 	for i, s := range command {
@@ -190,11 +197,17 @@ func extractFlag(command []string, flag string, nFlags int) ([]string, []string)
 	return newCommand, extractedFlags
 }
 
+// removeFlags removes flags from a []*syntax.Word
 func removeFlags(arguments []*syntax.Word) []string {
+	return removeFlagsLit(literize(arguments))
+}
+
+// removeFlagsLit removes flags from a literized array
+func removeFlagsLit(arguments []string) []string {
 	var args []string
 	for _, arg := range arguments {
-		if !strings.HasPrefix(arg.Lit(), "-") {
-			args = append(args, arg.Lit())
+		if !strings.HasPrefix(arg, "-") {
+			args = append(args, arg)
 		}
 	}
 	return args
