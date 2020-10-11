@@ -10,12 +10,12 @@ Usage:
   ffatoolkit [command]
 
 Available Commands:
-  analyze     Analyze a dockerfile or directory full of dockerfiles
   help        Help about any command
-  info        Show information about a docker GitHub repository
-  list        A brief description of your command
+  info        Show information about dockerfiles from GitHub repositories
+  list        Lists the Dockerfiles found in each repo in the repo file
   rank        Ranks the number of occurrences for each run binary executed by the docker RUN command
-  update      Updates/downloads the results using the GitHub REST API
+  translate   Translate scripts to FFAL
+  update      Updates/downloads the repo cache
 
 Flags:
   -h, --help                 help for ffatoolkit

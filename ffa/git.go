@@ -1,4 +1,4 @@
-// Copyright © 2019 Rodney Rodriguez
+// Copyright © 2020 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,19 +49,18 @@ type Language struct {
 	Percentage float32 `json:"percentage"`
 }
 
-// LoadRepos will load a list of Repo objects from a json file.
-func LoadRepos(filePath string) []Repo {
+// LoadRepoCache will load a list of Repo objects from a json file.
+func LoadRepoCache(filePath string) ([]Repo, error) {
 	var repos []Repo
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Printf("repo file does not exist: %s", filePath)
-		return repos
+		return nil, err
 	}
 	err = json.Unmarshal(data, &repos)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return repos
+	return repos, nil
 }
 
 // NewRepo creates the repo object given a URL
@@ -74,7 +73,9 @@ func NewRepo(ctx context.Context, client *github.Client, url string) Repo {
 		Owner: owner,
 		Repo:  repo,
 	}
-	LoadLanguages(ctx, client, &repoInfo)
+	if err := LoadLanguages(ctx, client, &repoInfo); err != nil {
+		log.Println(err)
+	}
 	LoadDockerfiles(ctx, client, &repoInfo)
 	return repoInfo
 }
@@ -138,12 +139,12 @@ func LoadDockerfiles(ctx context.Context, client *github.Client, repoInfo *Repo)
 	repoInfo.Images = images
 }
 
-// LoadLanguages loads all the
-func LoadLanguages(ctx context.Context, client *github.Client, repoInfo *Repo) {
+// LoadLanguages loads all the languages in the repository
+func LoadLanguages(ctx context.Context, client *github.Client, repoInfo *Repo) error {
 	// List the languages for the repo
 	languages, _, err := client.Repositories.ListLanguages(ctx, repoInfo.Owner, repoInfo.Repo)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// Calculate the total number bytes to be used later when computing the language percentage
@@ -166,6 +167,7 @@ func LoadLanguages(ctx context.Context, client *github.Client, repoInfo *Repo) {
 		return languageInfos[i].Percentage > languageInfos[j].Percentage
 	})
 	repoInfo.Languages = languageInfos
+	return nil
 }
 
 // CreateClient authenticates and creates a client to use
@@ -179,7 +181,7 @@ func CreateClient(ctx context.Context, accessToken string) *github.Client {
 }
 
 // GetRepoList creates a list of repos from a json array file
-func GetRepoList(jsonFilePath string) []string {
+func GetRepoList(jsonFilePath string) ([]string, error) {
 	// Open the input file
 	jsonFile, err := os.Open(jsonFilePath)
 	if err != nil {
@@ -191,7 +193,7 @@ func GetRepoList(jsonFilePath string) []string {
 	data, _ := ioutil.ReadAll(jsonFile)
 	var repos []string
 	if err = json.Unmarshal(data, &repos); err != nil {
-		log.Fatal("failed to open")
+		return nil, err
 	}
-	return repos
+	return repos, nil
 }

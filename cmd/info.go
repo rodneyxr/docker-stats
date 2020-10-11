@@ -1,4 +1,4 @@
-// Copyright © 2019 Rodney Rodriguez
+// Copyright © 2020 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,53 +15,71 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/rodneyxr/ffatoolkit/ffa"
 	"github.com/spf13/cobra"
+	"io/ioutil"
 	"log"
-	"strings"
 )
 
 var repoURL string
+var repoLanguage string
 
 // infoCmd represents the list command
 var infoCmd = &cobra.Command{
 	Use:   "info",
-	Short: "Show information about a docker GitHub repository",
+	Short: "Show information about dockerfiles from GitHub repositories",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load the existing results
-		repoList := ffa.LoadRepos(resultsFile)
-		repoMap := make(map[string]ffa.Repo)
-		for _, repo := range repoList {
-			repoMap[repo.URL] = repo
-		}
+		var repoList []ffa.Repo
+		var err error
 
-		// Generate a list of Golang repos
-		var goRepos []ffa.Repo
+		// if repoURL was provided load the repo
 		if repoURL != "" {
-			goRepos = append(goRepos, repoMap[repoURL])
+			ctx := context.Background()
+			token, err := ioutil.ReadFile(tokenFile)
+			if err != nil {
+				log.Fatal(err)
+			}
+			client := ffa.CreateClient(ctx, string(token))
+			log.Println("Fetching repo info:", repoURL)
+			repo := ffa.NewRepo(ctx, client, repoURL)
+			repoList = append(repoList, repo)
 		} else {
-			for _, repo := range repoList {
-				if len(repo.Languages) > 0 && repo.Languages[0].Name == "Go" {
-					goRepos = append(goRepos, repo)
-				}
+			// Load repos from the cache
+			repoList, err = ffa.LoadRepoCache(cacheFile)
+			if err != nil {
+				log.Fatal(err)
 			}
 		}
 
-		// TODO: Only handle one repo provided by argument
-		for i, repo := range goRepos {
+		// Filter if filter-lang was provided
+		var filteredRepos []ffa.Repo
+		if repoLanguage != "" {
+			for _, repo := range repoList {
+				if len(repo.Languages) > 0 && repo.Languages[0].Name == repoLanguage {
+					filteredRepos = append(filteredRepos, repo)
+				}
+			}
+		} else {
+			filteredRepos = repoList
+		}
+
+		// For each filtered repo, extract RUN commands from
+		for i, repo := range filteredRepos {
 			fmt.Printf("%d: %s\n", i, repo.URL)
 
 			// For each first Dockerfile in each repo
 			if len(repo.Dockerfiles) > 0 {
 				// Parse the Dockerfile
-				runCommandList, err := ffa.ExtractRunCommandsFromDockerfile(repo.Dockerfiles[0])
+				ffa, err := ffa.TranslateDockerfile(repo.Dockerfiles[0])
 				if err != nil {
 					log.Print(err)
+				} else {
+					log.Println(ffa)
 				}
-				for _, cmd := range runCommandList {
-					ffa.AnalyzeShellCommand(strings.Join(cmd.Value, " "))
-				}
+			} else {
+				log.Println("No Dockerfile found.")
 			}
 		}
 	},
@@ -70,4 +88,5 @@ var infoCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(infoCmd)
 	infoCmd.Flags().StringVar(&repoURL, "repo", "", "Git repo URL")
+	infoCmd.Flags().StringVar(&repoLanguage, "filter-lang", "", "Repo language to filter")
 }

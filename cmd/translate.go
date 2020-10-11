@@ -1,4 +1,4 @@
-// Copyright © 2019 Rodney Rodriguez
+// Copyright © 2020 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,10 +28,10 @@ var fileTypeFlag string
 var filepathFlag string
 var resultsDir string
 
-// analyzeCmd represents the list command
-var analyzeCmd = &cobra.Command{
-	Use:   "analyze",
-	Short: "Analyze a dockerfile or directory full of dockerfiles",
+// translateCmd represents the list command
+var translateCmd = &cobra.Command{
+	Use:   "translate",
+	Short: "Translate scripts to FFAL",
 	Run: func(cmd *cobra.Command, args []string) {
 		var files []string
 
@@ -70,44 +70,22 @@ var analyzeCmd = &cobra.Command{
 			}
 
 			var ffaScript []string
-
 			switch fileTypeFlag {
 			case "docker":
-				// Parse the Dockerfile
-				commandList, err := ffa.ExtractAllCommandsFromDockerfile(string(data))
+				ffaScript, err = ffa.TranslateDockerfile(string(data))
 				if err != nil {
-					log.Print(err)
-				}
-
-				for _, cmd := range commandList {
-					switch cmd.Cmd {
-					case "run":
-						results, err := ffa.AnalyzeShellCommand(strings.Join(cmd.Value, " "))
-						if err != nil {
-							log.Println(err)
-							continue
-						}
-						ffaScript = append(ffaScript, results...)
-						break
-					case "workdir":
-						ffaScript = append(ffaScript, "cd '"+cmd.Value[0]+"';")
-						break
-					case "copy":
-						if len(cmd.Value) == 2 {
-							ffaScript = append(ffaScript, "cp '"+cmd.Value[0]+"' '"+cmd.Value[1]+"';")
-						}
-						break
-					}
+					log.Println(err)
+					continue
 				}
 				break
 			case "shell":
-				results, err := ffa.AnalyzeShellCommand(string(data))
+				ffaScript, err = ffa.TranslateShellScript(string(data))
 				if err != nil {
 					// skip this file to avoid a partially translated file
 					log.Printf("failed to parse %s: %s", filename, err)
 					continue
 				}
-				ffaScript = append(ffaScript, results...)
+				//ffaScript = append(ffaScript, results...)
 				break
 			default:
 				log.Fatal("unsupported file type")
@@ -125,10 +103,9 @@ var analyzeCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(analyzeCmd)
-	analyzeCmd.Flags().StringVar(&fileTypeFlag, "type", "", "type of file to analyze (shell or docker)")
-	analyzeCmd.Flags().StringVar(&filepathFlag, "filepath", "", "path to file or directory to analyze")
-	analyzeCmd.Flags().StringVar(&resultsDir, "results", "results", "directory to save results")
-	_ = analyzeCmd.MarkFlagRequired("filepath")
-	_ = analyzeCmd.MarkFlagRequired("type")
+	rootCmd.AddCommand(translateCmd)
+	translateCmd.Flags().StringVar(&fileTypeFlag, "type", "shell", "type of file to analyze (shell or docker)")
+	translateCmd.Flags().StringVar(&filepathFlag, "filepath", "", "path to file or directory to analyze")
+	translateCmd.Flags().StringVar(&resultsDir, "results", "results", "directory to save results")
+	_ = translateCmd.MarkFlagRequired("filepath")
 }

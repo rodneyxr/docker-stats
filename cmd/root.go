@@ -1,4 +1,4 @@
-// Copyright © 2019 Rodney Rodriguez
+// Copyright © 2020 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,14 +16,13 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"os"
 )
 
 var reposFile string
-var resultsFile string
+var cacheFile string
 var tokenFile string
 
 // rootCmd represents the base command when called without any subcommands
@@ -46,7 +45,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&reposFile, "repos", "repos.yaml", "list of repos to update")
 	rootCmd.PersistentFlags().StringVar(&tokenFile, "token", "token.txt", "file containing GitHub access token")
-	rootCmd.PersistentFlags().StringVar(&resultsFile, "resultsfile", "results.json", "output file as json")
+	rootCmd.PersistentFlags().StringVar(&cacheFile, "resultsfile", "results.json", "output file as json")
 }
 
 // initConfig reads in the list of repos defined in a yaml file.

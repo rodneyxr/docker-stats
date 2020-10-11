@@ -1,9 +1,6 @@
 package ffa
 
 import (
-	"fmt"
-	"log"
-	"strings"
 	"testing"
 )
 
@@ -28,19 +25,8 @@ RUN mkdir bin
 
 func TestParser(t *testing.T) {
 	// Parse the Dockerfile
-	runCommandList, err := ExtractRunCommandsFromDockerfile(sampleDockerfile)
+	_, err := ExtractAllCommandsFromDockerfile(sampleDockerfile)
 	if err != nil {
-		log.Print(err)
+		t.Fatal(err)
 	}
-	ffa := strings.Builder{}
-	for _, cmd := range runCommandList {
-		commands, err := AnalyzeShellCommand(strings.Join(cmd.Value, " "))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, ffaCommand := range commands {
-			ffa.WriteString(ffaCommand + "\n")
-		}
-	}
-	fmt.Println(ffa.String())
 }

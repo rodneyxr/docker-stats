@@ -1,4 +1,4 @@
-// Copyright © 2019 Rodney Rodriguez
+// Copyright © 2020 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/asottile/dockerfile"
 	"github.com/rodneyxr/ffatoolkit/ffa"
+	"github.com/spf13/cobra"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/asottile/dockerfile"
-	"github.com/spf13/cobra"
 )
 
 var saveFlag bool
@@ -32,10 +31,13 @@ var saveFlag bool
 // listCmd represents the list command
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "A brief description of your command",
+	Short: "Lists the Dockerfiles found in each repo in the repo file",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the existing results
-		repoList := ffa.LoadRepos(resultsFile)
+		repoList, err := ffa.LoadRepoCache(cacheFile)
+		if err != nil {
+			log.Fatal("No repos were provided.")
+		}
 		repoMap := make(map[string]ffa.Repo)
 		for _, repo := range repoList {
 			repoMap[repo.URL] = repo

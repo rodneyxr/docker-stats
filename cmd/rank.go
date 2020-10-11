@@ -1,4 +1,4 @@
-// Copyright © 2019 Rodney Rodriguez
+// Copyright © 2020 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,10 @@ var rankCmd = &cobra.Command{
 	Short: "Ranks the number of occurrences for each run binary executed by the docker RUN command",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Load the existing results
-		repoList := ffa.LoadRepos(resultsFile)
+		repoList, err := ffa.LoadRepoCache(cacheFile)
+		if err != nil {
+			log.Fatal("No repos were provided.")
+		}
 		repoMap := make(map[string]ffa.Repo)
 		keywordMap := make(map[string]int)
 		for _, repo := range repoList {
@@ -102,14 +105,5 @@ var rankCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(rankCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// rankCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	rankCmd.Flags().BoolVar(&uniqueFlag, "unique", false, "Only allow one command per project to be ranked")
 }

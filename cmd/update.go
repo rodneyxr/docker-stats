@@ -1,4 +1,4 @@
-// Copyright © 2019 Rodney Rodriguez
+// Copyright © 2020 Rodney Rodriguez
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,22 +17,24 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/rodneyxr/ffatoolkit/ffa"
-	"io/ioutil"
-	"log"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"io/ioutil"
+	"log"
 )
 
 // updateCmd represents the update command
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Updates/downloads the results using the GitHub REST API",
+	Short: "Updates/downloads the repo cache",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load the existing results
-		repoList := ffa.LoadRepos(resultsFile)
+		// Load the existing cache
+		repoList, err := ffa.LoadRepoCache(cacheFile)
+		if err != nil {
+			repoList = []ffa.Repo{}
+		}
+
 		repoMap := make(map[string]ffa.Repo)
 		for _, repo := range repoList {
 			repoMap[repo.URL] = repo
@@ -51,28 +53,29 @@ var updateCmd = &cobra.Command{
 
 		for i, repoURL := range repoURLs {
 			// Display progress to the user
-			fmt.Printf("(%d/%d) %s\n", i+1, len(repoURLs), repoURL)
+			log.Printf("(%d/%d) %s\n", i+1, len(repoURLs), repoURL)
 
 			// Check if the repo exists already
 			repo, ok := repoMap[repoURL]
 			if !ok {
 				// Create and add the repo object to the result set
 				repo = ffa.NewRepo(ctx, client, repoURL)
-				repoList = append(repoList, repo)
 				repoMap[repoURL] = repo
 			}
-			if repo.Languages == nil {
-				ffa.LoadLanguages(ctx, client, &repo)
-			}
-			if repo.Dockerfiles == nil {
-				ffa.LoadDockerfiles(ctx, client, &repo)
-			}
+			//if repo.Languages == nil {
+			//	if err := ffa.LoadLanguages(ctx, client, &repo); err != nil {
+			//		log.Println(err)
+			//	}
+			//}
+			//if repo.Dockerfiles == nil {
+			//	ffa.LoadDockerfiles(ctx, client, &repo)
+			//}
 			results = append(results, repo)
 		}
 
-		// Write the results to a file
-		repoInfoJson, _ := json.MarshalIndent(results, "", "    ")
-		if err := ioutil.WriteFile(resultsFile, repoInfoJson, 0644); err != nil {
+		// Write the results to a cache file
+		repoCacheJson, _ := json.MarshalIndent(results, "", "    ")
+		if err := ioutil.WriteFile(cacheFile, repoCacheJson, 0644); err != nil {
 			log.Fatal(err)
 		}
 	},
@@ -80,14 +83,4 @@ var updateCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// updateCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// updateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
