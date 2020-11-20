@@ -2,11 +2,13 @@ package ffa
 
 import (
 	"fmt"
-	"github.com/mvdan/sh/syntax"
 	"log"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/mvdan/sh/syntax"
 )
 
 func TranslateDockerfile(data string) ([]string, error) {
@@ -164,6 +166,14 @@ func TranslateShellScript(data string) ([]string, error) {
 			case "export":
 				// TODO: handle variables
 				break
+			default:
+				// if strings.HasPrefix("./")
+				if m, err := regexp.MatchString(`^\.*?/`, cmd); err != nil {
+					log.Fatal(err)
+				} else if m {
+					// Assert that unknown scripts/binaries exists if relative or absolute path is invoked
+					ffaList = append(ffaList, fmt.Sprintf("assert(exists '%s');", cmd))
+				}
 			}
 			break
 		case *syntax.IfClause:
