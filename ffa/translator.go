@@ -154,6 +154,26 @@ func TranslateShellScript(data string) ([]string, error) {
 					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", args[1]))
 				}
 				break
+			case "chmod":
+				command := literize(x.Args)
+				command = removeFlagsLit(command)
+				if len(command) >= 3 {
+					for _, filename := range command[2:] {
+						ffaList = append(ffaList, fmt.Sprintf("assert(exists '%s');", filename))
+					}
+				}
+				break
+			case "python":
+				fallthrough
+			case "python2":
+				fallthrough
+			case "python3":
+				command := literize(x.Args)
+				command = removeFlagsLit(command)
+				if len(command) >= 2 {
+					ffaList = append(ffaList, fmt.Sprintf("assert(exists '%s');", command[1]))
+				}
+				break
 			case "tar":
 				// TODO: handle tar
 				break
