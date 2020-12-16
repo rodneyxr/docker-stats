@@ -163,6 +163,8 @@ func TranslateShellScript(data string) ([]string, error) {
 					}
 				}
 				break
+			case "source":
+				fallthrough
 			case "python":
 				fallthrough
 			case "python2":
