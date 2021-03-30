@@ -1,5 +1,8 @@
 package ffa
 
+// FIXME: if [... will be seen as a command and assert that '[' does not exist
+// FIXME: quoted values do not appear in translation. ex: touch 'a' will translate to touch ''
+
 import (
 	"fmt"
 	"log"
@@ -41,6 +44,39 @@ func TranslateDockerfile(data string) ([]string, error) {
 	return ffaScript, nil
 }
 
+type stack []syntax.Node
+
+func (s stack) Push(node syntax.Node) stack {
+	return append(s, node)
+}
+
+func (s stack) Pop() (stack, syntax.Node) {
+	// If stack is empty return the empty stack with a nil node
+	if len(s) == 0 {
+		return s, nil
+	}
+	return s[:len(s)-1], s[len(s)-1]
+}
+
+// nodes is a stack of syntax.nodes for scopes
+var nodes stack
+var scopeCounter int
+
+func appendFFAList(ffaList []string, commandStr string) []string {
+	commandStr = strings.Repeat("    ", scopeCounter) + commandStr
+	//log.Println("appending", commandStr)
+	ffaList = append(ffaList, commandStr)
+	return ffaList
+}
+
+func isScope(node syntax.Node) bool {
+	switch node.(type) {
+	case *syntax.IfClause, *syntax.WhileClause, *syntax.ForClause:
+		return true
+	}
+	return false
+}
+
 func TranslateShellScript(data string) ([]string, error) {
 	var ffaList []string
 	in := strings.NewReader(data)
@@ -50,175 +86,217 @@ func TranslateShellScript(data string) ([]string, error) {
 	}
 
 	ffaVarCounter := 0
+	scopeCounter = 0
+	nodes = stack{}
 	var varbank = make(map[string]string)
 
 	syntax.Walk(f, func(node syntax.Node) bool {
-		switch x := node.(type) {
-		case *syntax.Assign:
-			// Check if varname is in bank
-			if x.Name != nil {
-				ffaVar, ok := varbank[x.Name.Value]
-				if !ok {
-					ffaVar = "$x" + strconv.Itoa(ffaVarCounter)
-					// increment x? variable name
-					ffaVarCounter++
-				}
-
-				// If RHS is unknown use 'INPUT'
-				rhs := x.Value
-				if rhs == nil || len(rhs.Parts) == 0 {
-					return false
-				}
-				if _, ok = rhs.Parts[0].(*syntax.Lit); !ok {
-					// If RHS is not of type Lit, then we use INPUT
-					ffaList = append(ffaList, fmt.Sprintf("%s = INPUT;", ffaVar))
-				} else {
-					ffaList = append(ffaList, fmt.Sprintf("%s = '%s';", ffaVar, rhs.Lit()))
-				}
+		// TODO:
+		// if(node is nil){
+		//  x = pop from stack;
+		//  if x is if / for / while:
+		//      print end
+		// }else{
+		//   ...
+		//   push x to the stack
+		//   return true;
+		// }
+		if node == nil {
+			var x syntax.Node
+			nodes, x = nodes.Pop()
+			if isScope(x) {
+				scopeCounter--
+				ffaList = appendFFAList(ffaList, "}")
+				return false
 			}
-			break
-		case *syntax.CallExpr:
-			// Skip if empty command
-			if len(x.Args) == 0 {
-				return true
-			}
+		} else {
+			switch x := node.(type) {
+			case *syntax.Assign:
+				// Check if varname is in bank
+				if x.Name != nil {
+					ffaVar, ok := varbank[x.Name.Value]
+					if !ok {
+						ffaVar = "$x" + strconv.Itoa(ffaVarCounter)
+						// increment x? variable name
+						ffaVarCounter++
+					}
 
-			// We only handle most common commands
-			cmd := x.Args[0].Lit()
-			switch cmd {
-			case "touch":
-				// Create a touch statement for each argument
-				for _, s := range x.Args[1:] {
-					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", s.Lit()))
-				}
-				break
-			case "mkdir":
-				args := removeFlags(x.Args)
-				for _, s := range args[1:] {
-					// TODO: handle arguments with variables
-					ffaList = append(ffaList, fmt.Sprintf("mkdir '%s';", s))
-				}
-				break
-			case "rm":
-			case "rmdir":
-				// TODO: check for flags
-				// TODO: check for -r and use rmr
-				for _, s := range x.Args[1:] {
-					ffaList = append(ffaList, fmt.Sprintf("rmr '%s';", s.Lit()))
-				}
-				break
-			case "cp":
-				args := removeFlags(x.Args)
-				arg1, arg2 := args[1], args[2]
-				ffaList = append(ffaList, fmt.Sprintf("cp '%s' '%s';", arg1, arg2))
-				break
-			case "mv":
-				args := removeFlags(x.Args)
-				arg1, arg2 := args[1], args[2]
-				ffaList = append(ffaList, fmt.Sprintf("cp '%s' '%s';", arg1, arg2))
-				ffaList = append(ffaList, fmt.Sprintf("rmr '%s';", arg1))
-				break
-			case "git":
-				// TODO: handle git rm
-				arg1 := x.Args[1].Lit()
-				if arg1 == "clone" {
-					dirname := filepath.Base(x.Args[2].Lit())
-					ffaList = append(ffaList, fmt.Sprintf("mkdir '%s';", dirname))
-				}
-				break
-			case "cd":
-				if len(x.Args) == 1 {
-					// Typically 'cd' with no args with go to user's home directory...
-					ffaList = append(ffaList, "cd '/';")
-				} else {
-					arg1 := x.Args[1].Lit()
-					ffaList = append(ffaList, fmt.Sprintf("cd '%s';", arg1))
-				}
-				break
-			case "wget":
-				command := literize(x.Args)
-				command, args := extractFlag(command, "-O", 1)
-				if args != nil {
-					// if -O is present, touch full path
-					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", args[1]))
-				} else {
-					command = removeFlagsLit(command)
-					// if -O is not present, we don't always know what the filename will be
-					//ffaList = append(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(command[1])))
-				}
-				break
-			case "curl":
-				command := literize(x.Args)
-				command, args := extractFlag(command, "-O", 1)
-				if args != nil {
-					ffaList = append(ffaList, fmt.Sprintf("touch '%s';", args[1]))
-				}
-				break
-			case "chmod":
-				command := literize(x.Args)
-				command = removeFlagsLit(command)
-				if len(command) >= 3 {
-					for _, filename := range command[2:] {
-						ffaList = append(ffaList, fmt.Sprintf("assert(exists '%s');", filename))
+					// If RHS is unknown use 'INPUT'
+					rhs := x.Value
+					if rhs == nil || len(rhs.Parts) == 0 {
+						return false
+					}
+					if _, ok = rhs.Parts[0].(*syntax.Lit); !ok {
+						// If RHS is not of type Lit, then we use INPUT
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("%s = INPUT;", ffaVar))
+					} else {
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("%s = '%s';", ffaVar, rhs.Lit()))
 					}
 				}
 				break
-			case "file":
-				fallthrough
-			case "source":
-				fallthrough
-			case "python":
-				fallthrough
-			case "python2":
-				fallthrough
-			case "python3":
-				command := literize(x.Args)
-				command = removeFlagsLit(command)
-				if len(command) >= 2 {
-					ffaList = append(ffaList, fmt.Sprintf("assert(exists '%s');", command[1]))
+			case *syntax.CallExpr:
+				// Skip if empty command
+				if len(x.Args) == 0 {
+					return true
+				}
+
+				// We only handle most common commands
+				cmd := x.Args[0].Lit()
+				switch cmd {
+				case "touch":
+					// Create a touch statement for each argument
+					for _, s := range x.Args[1:] {
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("touch '%s';", s.Lit()))
+					}
+					break
+				case "mkdir":
+					args := removeFlags(x.Args)
+					for _, s := range args[1:] {
+						// TODO: handle arguments with variables
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("mkdir '%s';", s))
+					}
+					break
+				case "rm":
+				case "rmdir":
+					// TODO: check for flags
+					// TODO: check for -r and use rmr
+					for _, s := range x.Args[1:] {
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("rmr '%s';", s.Lit()))
+					}
+					break
+				case "cp":
+					args := removeFlags(x.Args)
+					arg1, arg2 := args[1], args[2]
+					ffaList = appendFFAList(ffaList, fmt.Sprintf("cp '%s' '%s';", arg1, arg2))
+					break
+				case "mv":
+					args := removeFlags(x.Args)
+					arg1, arg2 := args[1], args[2]
+					ffaList = appendFFAList(ffaList, fmt.Sprintf("cp '%s' '%s';", arg1, arg2))
+					ffaList = appendFFAList(ffaList, fmt.Sprintf("rmr '%s';", arg1))
+					break
+				case "git":
+					// TODO: handle git rm
+					arg1 := x.Args[1].Lit()
+					if arg1 == "clone" {
+						dirname := filepath.Base(x.Args[2].Lit())
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("mkdir '%s';", dirname))
+					}
+					break
+				case "cd":
+					if len(x.Args) == 1 {
+						// Typically 'cd' with no args with go to user's home directory...
+						ffaList = appendFFAList(ffaList, "cd '/';")
+					} else {
+						arg1 := x.Args[1].Lit()
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("cd '%s';", arg1))
+					}
+					break
+				case "wget":
+					command := literize(x.Args)
+					command, args := extractFlag(command, "-O", 1)
+					if args != nil {
+						// if -O is present, touch full path
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("touch '%s';", args[1]))
+					} else {
+						command = removeFlagsLit(command)
+						// if -O is not present, we don't always know what the filename will be
+						//ffaList = appendFFAList(ffaList, fmt.Sprintf("touch '%s';", filepath.Base(command[1])))
+					}
+					break
+				case "curl":
+					command := literize(x.Args)
+					command, args := extractFlag(command, "-O", 1)
+					if args != nil {
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("touch '%s';", args[1]))
+					}
+					break
+				case "chmod":
+					command := literize(x.Args)
+					command = removeFlagsLit(command)
+					if len(command) >= 3 {
+						for _, filename := range command[2:] {
+							ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(exists '%s');", filename))
+						}
+					}
+					break
+				case "file":
+					fallthrough
+				case "source":
+					fallthrough
+				case "python":
+					fallthrough
+				case "python2":
+					fallthrough
+				case "python3":
+					command := literize(x.Args)
+					command = removeFlagsLit(command)
+					if len(command) >= 2 {
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(exists '%s');", command[1]))
+					}
+					break
+				case "tar":
+					// TODO: handle tar
+					break
+				case "set":
+					// TODO: handle variables
+					break
+				case "ln":
+					// TODO: handle symlinks
+					break
+				case "export":
+					// TODO: handle variables
+					break
+				default:
+					// if strings.HasPrefix("./")
+					if m, err := regexp.MatchString(`^\.*?/`, cmd); err != nil {
+						log.Fatal(err)
+					} else if m {
+						// Assert that unknown scripts/binaries exists if relative or absolute path is invoked
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(exists '%s');", cmd))
+					} else {
+						// Ignore if conditions
+						if cmd[0] == '[' {
+							break
+						}
+
+						// Assert that the binary does not exist locally
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(! exists '%s');", cmd))
+					}
 				}
 				break
-			case "tar":
-				// TODO: handle tar
-				break
-			case "set":
-				// TODO: handle variables
-				break
-			case "ln":
-				// TODO: handle symlinks
-				break
-			case "export":
-				// TODO: handle variables
-				break
-			default:
-				// if strings.HasPrefix("./")
-				if m, err := regexp.MatchString(`^\.*?/`, cmd); err != nil {
-					log.Fatal(err)
-				} else if m {
-					// Assert that unknown scripts/binaries exists if relative or absolute path is invoked
-					ffaList = append(ffaList, fmt.Sprintf("assert(exists '%s');", cmd))
-				}
+			case *syntax.IfClause:
+				// print if (other) {
+				// TODO: handle if clause
+				ffaList = appendFFAList(ffaList, "if (other) {")
+				//fmt.Println("if clause")
+
+				//nodes = nodes.Push(node)
+				//for _, s := range x.Then.Stmts {
+				//	fmt.Println(s.Cmd)
+				//}
+			case *syntax.WhileClause:
+			case *syntax.ForClause:
+			case *syntax.CaseClause:
+			case *syntax.Block:
+			case *syntax.Subshell:
+			case *syntax.BinaryCmd:
+			case *syntax.FuncDecl:
+			case *syntax.ArithmCmd:
+			case *syntax.TestClause:
+			case *syntax.DeclClause:
+			case *syntax.LetClause:
+			case *syntax.TimeClause:
+			case *syntax.CoprocClause:
 			}
-			break
-		case *syntax.IfClause:
-			// TODO: handle if clause
-			// Axeldnahcram_zsh_install.sh
-		case *syntax.WhileClause:
-		case *syntax.ForClause:
-		case *syntax.CaseClause:
-		case *syntax.Block:
-		case *syntax.Subshell:
-		case *syntax.BinaryCmd:
-		case *syntax.FuncDecl:
-		case *syntax.ArithmCmd:
-		case *syntax.TestClause:
-		case *syntax.DeclClause:
-		case *syntax.LetClause:
-		case *syntax.TimeClause:
-		case *syntax.CoprocClause:
-		default:
+
+			if isScope(node) {
+				scopeCounter++
+			}
+			nodes = nodes.Push(node)
 		}
 		return true
 	})
+
 	return ffaList, nil
 }
