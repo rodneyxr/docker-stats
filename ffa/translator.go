@@ -91,16 +91,6 @@ func TranslateShellScript(data string) ([]string, error) {
 	var varbank = make(map[string]string)
 
 	syntax.Walk(f, func(node syntax.Node) bool {
-		// TODO:
-		// if(node is nil){
-		//  x = pop from stack;
-		//  if x is if / for / while:
-		//      print end
-		// }else{
-		//   ...
-		//   push x to the stack
-		//   return true;
-		// }
 		if node == nil {
 			var x syntax.Node
 			nodes, x = nodes.Pop()
@@ -266,17 +256,11 @@ func TranslateShellScript(data string) ([]string, error) {
 				}
 				break
 			case *syntax.IfClause:
-				// print if (other) {
-				// TODO: handle if clause
 				ffaList = appendFFAList(ffaList, "if (other) {")
-				//fmt.Println("if clause")
-
-				//nodes = nodes.Push(node)
-				//for _, s := range x.Then.Stmts {
-				//	fmt.Println(s.Cmd)
-				//}
 			case *syntax.WhileClause:
+				ffaList = appendFFAList(ffaList, "while (other) {")
 			case *syntax.ForClause:
+				ffaList = appendFFAList(ffaList, "while (other) {")
 			case *syntax.CaseClause:
 			case *syntax.Block:
 			case *syntax.Subshell:
