@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mvdan/sh/syntax"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 func TranslateDockerfile(data string) ([]string, error) {

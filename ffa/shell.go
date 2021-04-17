@@ -1,7 +1,7 @@
 package ffa
 
 import (
-	"github.com/mvdan/sh/syntax"
+	"mvdan.cc/sh/v3/syntax"
 	"strings"
 )
 
