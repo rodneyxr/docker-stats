@@ -127,7 +127,7 @@ func TranslateShellScript(data string) ([]string, error) {
 			case *syntax.CallExpr:
 				// Skip if empty command
 				if len(x.Args) == 0 {
-					return true
+					break
 				}
 
 				// We only handle most common commands
