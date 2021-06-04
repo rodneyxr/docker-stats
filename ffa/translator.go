@@ -77,6 +77,17 @@ func isScope(node syntax.Node) bool {
 	return false
 }
 
+func isElseScope(node syntax.Node) bool {
+	var empty syntax.Pos
+	switch x := node.(type) {
+	case *syntax.IfClause:
+		if x.ThenPos == empty {
+			return true
+		}
+	}
+	return false
+}
+
 func TranslateShellScript(data string) ([]string, error) {
 	var ffaList []string
 	in := strings.NewReader(data)
@@ -94,7 +105,10 @@ func TranslateShellScript(data string) ([]string, error) {
 		if node == nil {
 			var x syntax.Node
 			nodes, x = nodes.Pop()
-			if isScope(x) {
+			if isElseScope(x) {
+				//ffaList = appendFFAList(ffaList, "}")
+				return false
+			} else if isScope(x) {
 				scopeCounter--
 				ffaList = appendFFAList(ffaList, "}")
 				return false
@@ -245,18 +259,36 @@ func TranslateShellScript(data string) ([]string, error) {
 						// Assert that unknown scripts/binaries exists if relative or absolute path is invoked
 						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(exists '%s');", cmd))
 					} else {
-						// Ignore if conditions
-						if cmd[0] == '[' {
-							break
-						}
+						//// Ignore if conditions
+						//if cmd[0] == '[' {
+						//	break
+						//}
 
 						// Assert that the binary does not exist locally
 						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(! exists '%s');", cmd))
 					}
 				}
-				break
+				//break
 			case *syntax.IfClause:
-				ffaList = appendFFAList(ffaList, "if (other) {")
+				//ffaList = appendFFAList(ffaList, "if (other) {")
+				//fmt.Println(*syntax.IfClause(node).Else)
+				var empty syntax.Pos
+
+				// Condition to check if IfClause node is an Else statement
+				if x.ThenPos == empty && x.FiPos != empty {
+					//scopeCounter--
+					ffaList = appendFFAList(ffaList, "} else {")
+					//scopeCounter++
+				// Condition to check if IfClause node is an elif statement
+				//} else if x.Else != nil {
+				////} else if x.ThenPos != empty && x.FiPos != empty && x.Else != nil {
+				//	// FIXME: handle elif statements
+				//	//	scopeCounter--
+				//	//	ffaList = appendFFAList(ffaList, "} else if (other) {")
+				//	//scopeCounter++
+				} else {
+					ffaList = appendFFAList(ffaList, "if (other) {")
+				}
 			case *syntax.WhileClause:
 				ffaList = appendFFAList(ffaList, "while (other) {")
 			case *syntax.ForClause:

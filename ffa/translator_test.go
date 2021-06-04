@@ -1,6 +1,7 @@
 package ffa
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -98,7 +99,55 @@ touch after
 `)
 	//fmt.Println(strings.Join(script, "\n"))
 
-	tokens := []string{"before", "while", "inside1", "while", "inside2", "after"}
+	tokens := []string{"before", "while", "inside1", "while", "inside2", "after", "}"}
+	tokenCount := verifyTokens(tokens, script)
+	if tokenCount != len(tokens) {
+		t.Errorf("token '%s' not found", tokens[tokenCount])
+	}
+}
+
+func TestShellIfElseStatements(t *testing.T) {
+	script := getFFAScript(t, `
+#!/bin/bash
+touch before
+
+if [ $ANSI_INSTALLED -eq $SUCC ]; then
+	touch inside1
+else
+	touch inside2
+fi
+
+touch after
+`)
+	fmt.Println(strings.Join(script, "\n"))
+
+	tokens := []string{"before", "if", "inside1", "else", "inside2", "}", "after"}
+	tokenCount := verifyTokens(tokens, script)
+	if tokenCount != len(tokens) {
+		t.Errorf("token '%s' not found", tokens[tokenCount])
+	}
+}
+
+func TestShellElifStatements(t *testing.T) {
+	script := getFFAScript(t, `
+#!/bin/bash
+touch before
+
+if [ $ANSI_INSTALLED -eq $SUCC ]; then
+	touch inside1
+elif [ $ANSI_INSTALLED ]; then
+	touch inside2
+elif [ $ANSI_INSTALLED ]; then
+	touch inside3
+else
+    touch inside4
+fi
+
+touch after
+`)
+	fmt.Println(strings.Join(script, "\n"))
+
+	tokens := []string{"before", "if", "inside1", "else if", "inside2", "inside3", "else if", "after"}
 	tokenCount := verifyTokens(tokens, script)
 	if tokenCount != len(tokens) {
 		t.Errorf("token '%s' not found", tokens[tokenCount])

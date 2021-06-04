@@ -52,6 +52,9 @@ type Language struct {
 // LoadRepoCache will load a list of Repo objects from a json file.
 func LoadRepoCache(filePath string) ([]Repo, error) {
 	var repos []Repo
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return repos, nil
+	}
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
