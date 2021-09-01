@@ -1,0 +1,12 @@
+# Files
+Dockerfile
+.dockerignore
+.gitignore
+*.exe
+
+# Directories
+.git/
+.github/
+.vscode/
+results/
+input/

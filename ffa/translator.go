@@ -64,14 +64,22 @@ var scopeCounter int
 
 func appendFFAList(ffaList []string, commandStr string) []string {
 	commandStr = strings.Repeat("    ", scopeCounter) + commandStr
-	//log.Println("appending", commandStr)
 	ffaList = append(ffaList, commandStr)
 	return ffaList
 }
 
-func isScope(node syntax.Node) bool {
-	switch node.(type) {
-	case *syntax.IfClause, *syntax.WhileClause, *syntax.ForClause:
+func isScope(node syntax.Node, data string) bool {
+	var empty syntax.Pos
+	switch x := node.(type) {
+	case *syntax.IfClause:
+		// elif and else if's should not count as a new scope
+		if x.ThenPos == empty && x.FiPos != empty {
+			return false
+		} else if x.ThenPos != empty && string(data[x.Pos().Offset()]) == "e" {
+			return false
+		}
+		return true
+	case *syntax.WhileClause, *syntax.ForClause:
 		return true
 	}
 	return false
@@ -91,11 +99,11 @@ func isElseScope(node syntax.Node) bool {
 func TranslateShellScript(data string) ([]string, error) {
 	var ffaList []string
 	in := strings.NewReader(data)
-	f, err := syntax.NewParser().Parse(in, "")
+	parser := syntax.NewParser()
+	f, err := parser.Parse(in, "")
 	if err != nil {
 		return nil, err
 	}
-
 	ffaVarCounter := 0
 	scopeCounter = 0
 	nodes = stack{}
@@ -106,9 +114,8 @@ func TranslateShellScript(data string) ([]string, error) {
 			var x syntax.Node
 			nodes, x = nodes.Pop()
 			if isElseScope(x) {
-				//ffaList = appendFFAList(ffaList, "}")
 				return false
-			} else if isScope(x) {
+			} else if isScope(x, data) {
 				scopeCounter--
 				ffaList = appendFFAList(ffaList, "}")
 				return false
@@ -259,33 +266,26 @@ func TranslateShellScript(data string) ([]string, error) {
 						// Assert that unknown scripts/binaries exists if relative or absolute path is invoked
 						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(exists '%s');", cmd))
 					} else {
-						//// Ignore if conditions
-						//if cmd[0] == '[' {
-						//	break
-						//}
-
-						// Assert that the binary does not exist locally
-						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(! exists '%s');", cmd))
+						// Ignore if conditions
+						if cmd[0] != '[' {
+							// Assert that the binary does not exist locally
+							ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(! exists '%s');", cmd))
+						}
 					}
 				}
-				//break
 			case *syntax.IfClause:
-				//ffaList = appendFFAList(ffaList, "if (other) {")
-				//fmt.Println(*syntax.IfClause(node).Else)
 				var empty syntax.Pos
 
 				// Condition to check if IfClause node is an Else statement
 				if x.ThenPos == empty && x.FiPos != empty {
-					//scopeCounter--
+					scopeCounter--
 					ffaList = appendFFAList(ffaList, "} else {")
-					//scopeCounter++
-				// Condition to check if IfClause node is an elif statement
-				//} else if x.Else != nil {
-				////} else if x.ThenPos != empty && x.FiPos != empty && x.Else != nil {
-				//	// FIXME: handle elif statements
-				//	//	scopeCounter--
-				//	//	ffaList = appendFFAList(ffaList, "} else if (other) {")
-				//	//scopeCounter++
+					scopeCounter++
+					// Condition to check if IfClause node is an elif statement
+				} else if x.ThenPos != empty && string(data[x.Pos().Offset()]) == "e" {
+					scopeCounter--
+					ffaList = appendFFAList(ffaList, "} else if (other) {")
+					scopeCounter++
 				} else {
 					ffaList = appendFFAList(ffaList, "if (other) {")
 				}
@@ -306,7 +306,7 @@ func TranslateShellScript(data string) ([]string, error) {
 			case *syntax.CoprocClause:
 			}
 
-			if isScope(node) {
+			if isScope(node, data) {
 				scopeCounter++
 			}
 			nodes = nodes.Push(node)

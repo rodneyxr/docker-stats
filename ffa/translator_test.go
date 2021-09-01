@@ -1,7 +1,6 @@
 package ffa
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -99,7 +98,7 @@ touch after
 `)
 	//fmt.Println(strings.Join(script, "\n"))
 
-	tokens := []string{"before", "while", "inside1", "while", "inside2", "after", "}"}
+	tokens := []string{"before", "while", "inside1", "while", "inside2", "}", "after"}
 	tokenCount := verifyTokens(tokens, script)
 	if tokenCount != len(tokens) {
 		t.Errorf("token '%s' not found", tokens[tokenCount])
@@ -119,7 +118,7 @@ fi
 
 touch after
 `)
-	fmt.Println(strings.Join(script, "\n"))
+	//fmt.Println(strings.Join(script, "\n"))
 
 	tokens := []string{"before", "if", "inside1", "else", "inside2", "}", "after"}
 	tokenCount := verifyTokens(tokens, script)
@@ -145,9 +144,9 @@ fi
 
 touch after
 `)
-	fmt.Println(strings.Join(script, "\n"))
+	//fmt.Println(strings.Join(script, "\n"))
 
-	tokens := []string{"before", "if", "inside1", "else if", "inside2", "inside3", "else if", "after"}
+	tokens := []string{"before", "if", "inside1", "else if", "inside2", "else if", "inside3", "after"}
 	tokenCount := verifyTokens(tokens, script)
 	if tokenCount != len(tokens) {
 		t.Errorf("token '%s' not found", tokens[tokenCount])
