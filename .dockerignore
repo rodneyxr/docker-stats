@@ -1,8 +1,12 @@
 # Files
+.*
 Dockerfile
 .dockerignore
 .gitignore
 *.exe
+*.json
+*.yaml
+*.yml
 
 # Directories
 .git/

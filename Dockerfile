@@ -3,4 +3,5 @@ WORKDIR /go/src/github.com/rodneyxr/ffatoolkit
 COPY . .
 RUN go get -d -v ./... && \
     go install -v ./...
-CMD ["ffatoolkit"]
+ENTRYPOINT ["ffatoolkit"]
+CMD []
