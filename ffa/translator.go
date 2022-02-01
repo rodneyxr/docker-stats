@@ -168,11 +168,13 @@ func TranslateShellScript(data string) ([]string, error) {
 					}
 					break
 				case "rm":
+					fallthrough
 				case "rmdir":
 					// TODO: check for flags
 					// TODO: check for -r and use rmr
-					for _, s := range x.Args[1:] {
-						ffaList = appendFFAList(ffaList, fmt.Sprintf("rmr '%s';", s.Lit()))
+					args := removeFlags(x.Args)
+					for _, s := range args[1:] {
+						ffaList = appendFFAList(ffaList, fmt.Sprintf("rmr '%s';", s))
 					}
 					break
 				case "cp":
