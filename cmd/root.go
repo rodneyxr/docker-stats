@@ -23,7 +23,6 @@ import (
 
 var reposFile string
 var cacheFile string
-var tokenFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -44,7 +43,6 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&reposFile, "repos", "repos.yaml", "list of repos to update")
-	rootCmd.PersistentFlags().StringVar(&tokenFile, "token", "token.txt", "file containing GitHub access token")
 	rootCmd.PersistentFlags().StringVar(&cacheFile, "resultsfile", "results.json", "output file as json")
 }
 

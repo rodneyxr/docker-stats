@@ -19,12 +19,12 @@ import (
 	"fmt"
 	"github.com/rodneyxr/ffatoolkit/ffa"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"log"
 )
 
 var repoURL string
 var repoLanguage string
+var gitToken string
 
 // infoCmd represents the list command
 var infoCmd = &cobra.Command{
@@ -37,11 +37,7 @@ var infoCmd = &cobra.Command{
 		// if repoURL was provided load the repo
 		if repoURL != "" {
 			ctx := context.Background()
-			token, err := ioutil.ReadFile(tokenFile)
-			if err != nil {
-				log.Fatal(err)
-			}
-			client := ffa.CreateClient(ctx, string(token))
+			client := ffa.CreateClient(ctx, gitToken)
 			log.Println("Fetching repo info:", repoURL)
 			repo := ffa.NewRepo(ctx, client, repoURL)
 			repoList = append(repoList, repo)
@@ -50,6 +46,12 @@ var infoCmd = &cobra.Command{
 			repoList, err = ffa.LoadRepoCache(cacheFile)
 			if err != nil {
 				log.Fatal(err)
+			}
+			if len(repoList) == 0 {
+				fmt.Println("No repos in cache.")
+				fmt.Println("Try running the following command first:")
+				fmt.Println("    $ ffatoolkit update")
+				return
 			}
 		}
 
@@ -63,6 +65,11 @@ var infoCmd = &cobra.Command{
 			}
 		} else {
 			filteredRepos = repoList
+		}
+
+		if len(filteredRepos) == 0 {
+			fmt.Println("No repos matched the filter.")
+			return
 		}
 
 		// For each filtered repo, extract RUN commands from
@@ -89,4 +96,5 @@ func init() {
 	rootCmd.AddCommand(infoCmd)
 	infoCmd.Flags().StringVar(&repoURL, "repo", "", "Git repo URL")
 	infoCmd.Flags().StringVar(&repoLanguage, "filter-lang", "", "Repo language to filter")
+	infoCmd.Flags().StringVar(&gitToken, "token", "", "GitHub access token")
 }

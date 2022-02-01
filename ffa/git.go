@@ -52,6 +52,9 @@ type Language struct {
 // LoadRepoCache will load a list of Repo objects from a json file.
 func LoadRepoCache(filePath string) ([]Repo, error) {
 	var repos []Repo
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return repos, nil
+	}
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -172,9 +175,12 @@ func LoadLanguages(ctx context.Context, client *github.Client, repoInfo *Repo) e
 
 // CreateClient authenticates and creates a client to use
 func CreateClient(ctx context.Context, accessToken string) *github.Client {
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: accessToken},
-	)
+	var ts oauth2.TokenSource = nil
+	if accessToken != "" {
+		ts = oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: accessToken},
+		)
+	}
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 	return client
@@ -187,7 +193,7 @@ func GetRepoList(jsonFilePath string) ([]string, error) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	defer jsonFile.Close()
+	defer log.Fatal(jsonFile.Close())
 
 	// Read the data from the file
 	data, _ := ioutil.ReadAll(jsonFile)

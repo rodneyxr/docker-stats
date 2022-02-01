@@ -1,0 +1,39 @@
+stages:
+  - test
+  - build
+  - publish
+
+test:
+  stage: test
+  image: docker.io/library/golang:1.17
+  needs: [ ]
+  script:
+    - go test -v ./...
+
+build:
+  stage: build
+  image: quay.io/containers/buildah:latest
+  needs: [ ]
+  before_script:
+    - buildah login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - buildah bud -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA .
+    - buildah push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+
+publish:
+  stage: publish
+  image: quay.io/containers/buildah:latest
+  needs:
+    - build
+    - test
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+    - buildah login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - buildah pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+    - buildah tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+    - buildah push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  only:
+    - /^master|beta$/
+    - tags

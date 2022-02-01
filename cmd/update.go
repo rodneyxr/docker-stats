@@ -42,11 +42,10 @@ var updateCmd = &cobra.Command{
 
 		repoURLs := viper.GetStringSlice("repos")
 		ctx := context.Background()
-		token, err := ioutil.ReadFile(tokenFile)
 		if err != nil {
 			log.Fatal(err)
 		}
-		client := ffa.CreateClient(ctx, string(token))
+		client := ffa.CreateClient(ctx, gitToken)
 
 		// Create the info list to hold all the results
 		var results []ffa.Repo
@@ -83,4 +82,5 @@ var updateCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
+	updateCmd.Flags().StringVar(&gitToken, "token", "", "GitHub access token")
 }
