@@ -154,6 +154,8 @@ func TranslateShellScript(data string) ([]string, error) {
 				// We only handle most common commands
 				cmd := x.Args[0].Lit()
 				switch cmd {
+				case "read":
+
 				case "touch":
 					// Create a touch statement for each argument
 					for _, s := range x.Args[1:] {
@@ -269,7 +271,7 @@ func TranslateShellScript(data string) ([]string, error) {
 						ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(exists '%s');", cmd))
 					} else {
 						// Ignore if conditions
-						if cmd[0] != '[' {
+						if len(cmd) > 0 && cmd[0] != '[' {
 							// Assert that the binary does not exist locally
 							ffaList = appendFFAList(ffaList, fmt.Sprintf("assert(! exists '%s');", cmd))
 						}
